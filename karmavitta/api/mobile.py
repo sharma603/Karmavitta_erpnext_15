@@ -748,9 +748,11 @@ def get_my_attendance_dashboard():
 				}
 		except Exception:
 			pass
-		my_present = len(set(my_days) - my_late_days)
+		# present = total days with log (including late); late is subset, not separate absent
+		my_present_total = len(set(my_days))
 		my_late = len(my_late_days)
-		my_absent = max(working - my_present - my_late - leave - half, 0)
+		my_present = my_present_total
+		my_absent = max(working - my_present_total - leave - half, 0)
 
 		recent = []
 		if employee:
