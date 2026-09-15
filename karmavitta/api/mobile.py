@@ -491,14 +491,17 @@ def get_today_logs(employee: str | None = None):
 
 @frappe.whitelist()
 def get_today_attendance_summary(company: str | None = None):
-	"""Dashboard graph data: total / present / absent for today.
+	"""Dashboard graph data: total / present / absent / late / on_leave today.
 
 	Present = distinct employees with at least one IN log today.
+	Late = first IN after shift start + 15 min grace (else 09:15).
+	On Leave = HR Attendance count (0 when HRMS is absent).
 	Requires login (admin dashboard use).
 	"""
 	try:
 		settings = get_settings()
 		company = company or settings.default_company
+		today = getdate(now_datetime())
 		filters = {"status": "Active"}
 		if company:
 			filters["company"] = company
@@ -507,18 +510,49 @@ def get_today_attendance_summary(company: str | None = None):
 
 		log_filters = {
 			"log_type": "IN",
-			"log_time": [">=", getdate(now_datetime())],
+			"log_time": [">=", today],
 		}
 		if company:
 			log_filters["company"] = company
-		present_employees = frappe.get_all(
+		today_logs = frappe.get_all(
 			"Face Attendance Log",
 			filters=log_filters,
-			fields=["employee"],
+			fields=["employee", "log_time"],
+			order_by="log_time asc",
 		)
-		present = len({row.employee for row in present_employees if row.employee})
-		present = min(present, total)
-		return _ok(total=total, present=present, absent=max(total - present, 0))
+		first_in: dict[str, object] = {}
+		for row in today_logs:
+			if row.employee and row.employee not in first_in and row.log_time:
+				first_in[row.employee] = row.log_time.time()
+		shift_cache: dict[str, object] = {}
+		late = sum(
+			1
+			for emp, first_time in first_in.items()
+			if first_time > _late_cutoff_for(emp, shift_cache, today)
+		)
+
+		on_leave = 0
+		try:
+			if frappe.db.exists("DocType", "Attendance"):
+				leave_filters = {
+					"attendance_date": today,
+					"status": "On Leave",
+					"docstatus": ["!=", 2],
+				}
+				if company:
+					leave_filters["company"] = company
+				on_leave = frappe.db.count("Attendance", filters=leave_filters)
+		except Exception:
+			pass
+
+		present = min(len(first_in), total)
+		return _ok(
+			total=total,
+			present=present,
+			absent=max(total - present, 0),
+			late=late,
+			on_leave=on_leave,
+		)
 	except Exception as exc:
 		return _fail(str(exc))
 
@@ -596,9 +630,26 @@ def get_my_attendance_dashboard():
 
 		shift_cache: dict[str, object] = {}
 
+		leave_by_day: dict[str, int] = defaultdict(int)
+		try:
+			if frappe.db.exists("DocType", "Attendance"):
+				leave_filters = {
+					"status": "On Leave",
+					"attendance_date": [">=", query_start],
+					"docstatus": ["!=", 2],
+				}
+				if company:
+					leave_filters["company"] = company
+				for row in frappe.get_all(
+					"Attendance", filters=leave_filters, fields=["attendance_date"]
+				):
+					leave_by_day[getdate(row.attendance_date).isoformat()] += 1
+		except Exception:
+			pass
+
 		def day_counts(day_iso, is_future):
 			if is_future:
-				return {"present": 0, "absent": 0, "late": 0}
+				return {"present": 0, "absent": 0, "late": 0, "leave": 0}
 			firsts = day_first.get(day_iso, {})
 			late = sum(
 				1
@@ -606,7 +657,12 @@ def get_my_attendance_dashboard():
 				if t > _late_cutoff_for(emp, shift_cache, today)
 			)
 			present = len(firsts)
-			return {"present": present, "absent": max(total - present, 0), "late": late}
+			return {
+				"present": present,
+				"absent": max(total - present, 0),
+				"late": late,
+				"leave": leave_by_day.get(day_iso, 0),
+			}
 
 		labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 		week = []
@@ -624,7 +680,7 @@ def get_my_attendance_dashboard():
 			("W3", 15, 21),
 			("W4", 22, last_day),
 		]:
-			present_sum = absent_sum = late_sum = days = 0
+			present_sum = absent_sum = late_sum = leave_sum = days = 0
 			for day_no in range(start_no, end_no + 1):
 				day = month_start + timedelta(days=day_no - 1)
 				if day > today:
@@ -633,6 +689,7 @@ def get_my_attendance_dashboard():
 				present_sum += counts["present"]
 				absent_sum += counts["absent"]
 				late_sum += counts["late"]
+				leave_sum += counts["leave"]
 				days += 1
 			if days:
 				month.append(
@@ -641,10 +698,13 @@ def get_my_attendance_dashboard():
 						"present": round(present_sum / days),
 						"absent": round(absent_sum / days),
 						"late": round(late_sum / days),
+						"leave": round(leave_sum / days),
 					}
 				)
 			else:
-				month.append({"label": label, "present": 0, "absent": 0, "late": 0})
+				month.append(
+					{"label": label, "present": 0, "absent": 0, "late": 0, "leave": 0}
+				)
 
 		working = sum(
 			1
