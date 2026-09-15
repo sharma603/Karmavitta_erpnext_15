@@ -489,6 +489,40 @@ def get_today_logs(employee: str | None = None):
 	return _ok(logs=logs)
 
 
+@frappe.whitelist()
+def get_today_attendance_summary(company: str | None = None):
+	"""Dashboard graph data: total / present / absent for today.
+
+	Present = distinct employees with at least one IN log today.
+	Requires login (admin dashboard use).
+	"""
+	try:
+		settings = get_settings()
+		company = company or settings.default_company
+		filters = {"status": "Active"}
+		if company:
+			filters["company"] = company
+
+		total = frappe.db.count("Employee", filters=filters)
+
+		log_filters = {
+			"log_type": "IN",
+			"log_time": [">=", getdate(now_datetime())],
+		}
+		if company:
+			log_filters["company"] = company
+		present_employees = frappe.get_all(
+			"Face Attendance Log",
+			filters=log_filters,
+			fields=["employee"],
+		)
+		present = len({row.employee for row in present_employees if row.employee})
+		present = min(present, total)
+		return _ok(total=total, present=present, absent=max(total - present, 0))
+	except Exception as exc:
+		return _fail(str(exc))
+
+
 @frappe.whitelist(allow_guest=True)
 def sync_offline_logs(logs, api_key: str | None = None):
 	"""Bulk sync offline attendance logs from mobile."""
