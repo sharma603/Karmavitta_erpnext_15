@@ -651,17 +651,20 @@ def get_my_attendance_dashboard():
 			if is_future:
 				return {"present": 0, "absent": 0, "late": 0, "leave": 0}
 			firsts = day_first.get(day_iso, {})
+			leave = leave_by_day.get(day_iso, 0)
 			late = sum(
 				1
 				for emp, t in firsts.items()
 				if t > _late_cutoff_for(emp, shift_cache, today)
 			)
 			present = len(firsts)
+			# absent = remaining after present + leave; late is subset of present
+			absent = max(total - present - leave, 0)
 			return {
 				"present": present,
-				"absent": max(total - present, 0),
+				"absent": absent,
 				"late": late,
-				"leave": leave_by_day.get(day_iso, 0),
+				"leave": leave,
 			}
 
 		labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
