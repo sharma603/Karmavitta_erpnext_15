@@ -1,14 +1,18 @@
 app_name = "karmavitta"
 app_title = "Karmavitta"
 app_publisher = "Synergy"
-app_description = "Karmavitta custom app"
+app_description = "Face Attendance mobile app integration for ERPNext"
 app_email = "Bijay.sharma@synergy.com"
 app_license = "mit"
+app_version = "0.1.0"
 
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["erpnext"]
+
+after_install = "karmavitta.install.after_install"
+after_migrate = "karmavitta.install.after_migrate"
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [

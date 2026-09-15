@@ -1,0 +1,200 @@
+{
+ "actions": [],
+ "autoname": "format:FAL-{employee}-{#####}",
+ "creation": "2026-09-10 13:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "company",
+  "column_break_1",
+  "log_type",
+  "log_time",
+  "verification_status",
+  "face_match_score",
+  "section_break_device",
+  "device_id",
+  "device_name",
+  "latitude",
+  "longitude",
+  "location_name",
+  "column_break_capture",
+  "capture_image",
+  "remarks",
+  "section_break_links",
+  "employee_checkin",
+  "attendance"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Employee Name",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "employee.company",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "log_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Log Type",
+   "options": "IN\nOUT",
+   "reqd": 1
+  },
+  {
+   "default": "Now",
+   "fieldname": "log_time",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Log Time",
+   "reqd": 1
+  },
+  {
+   "default": "Verified",
+   "fieldname": "verification_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Verification Status",
+   "options": "Verified\nFailed\nManual"
+  },
+  {
+   "fieldname": "face_match_score",
+   "fieldtype": "Float",
+   "label": "Face Match Score",
+   "precision": "4"
+  },
+  {
+   "fieldname": "section_break_device",
+   "fieldtype": "Section Break",
+   "label": "Device & Location"
+  },
+  {
+   "fieldname": "device_id",
+   "fieldtype": "Data",
+   "label": "Device ID"
+  },
+  {
+   "fieldname": "device_name",
+   "fieldtype": "Data",
+   "label": "Device Name"
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "label": "Latitude",
+   "precision": "8"
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "label": "Longitude",
+   "precision": "8"
+  },
+  {
+   "fieldname": "location_name",
+   "fieldtype": "Data",
+   "label": "Location Name"
+  },
+  {
+   "fieldname": "column_break_capture",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "capture_image",
+   "fieldtype": "Attach Image",
+   "label": "Capture Image"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "section_break_links",
+   "fieldtype": "Section Break",
+   "label": "HRMS Links"
+  },
+  {
+   "fieldname": "employee_checkin",
+   "fieldtype": "Link",
+   "label": "Employee Checkin",
+   "options": "Employee Checkin",
+   "read_only": 1
+  },
+  {
+   "fieldname": "attendance",
+   "fieldtype": "Link",
+   "label": "Attendance",
+   "options": "Attendance",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-09-10 13:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Face Attendance",
+ "name": "Face Attendance Log",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Employee"
+  }
+ ],
+ "sort_field": "log_time",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

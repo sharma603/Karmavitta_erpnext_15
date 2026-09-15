@@ -1,0 +1,161 @@
+{
+ "actions": [],
+ "autoname": "KFRA-.YYYY.-.#####",
+ "creation": "2026-09-13 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "column_break_1",
+  "event",
+  "result",
+  "error_code",
+  "section_meta",
+  "model_name",
+  "model_version",
+  "embedding_dimension",
+  "device_id",
+  "column_break_2",
+  "best_score",
+  "threshold_used",
+  "actor_user",
+  "event_time",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Employee",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Employee Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "event",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Event",
+   "options": "Register\nVerify\nRe-register Request\nRe-register Approve\nDisable\nDelete\nUpdate"
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Result",
+   "options": "Success\nRejected\nDuplicate\nError\nPending"
+  },
+  {
+   "fieldname": "error_code",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Error Code"
+  },
+  {
+   "fieldname": "section_meta",
+   "fieldtype": "Section Break",
+   "label": "Metadata"
+  },
+  {
+   "fieldname": "model_name",
+   "fieldtype": "Data",
+   "label": "Model Name"
+  },
+  {
+   "fieldname": "model_version",
+   "fieldtype": "Data",
+   "label": "Model Version"
+  },
+  {
+   "fieldname": "embedding_dimension",
+   "fieldtype": "Int",
+   "label": "Embedding Dimension"
+  },
+  {
+   "fieldname": "device_id",
+   "fieldtype": "Data",
+   "label": "Device ID"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Similarity score only — never stores matched employee identity for privacy.",
+   "fieldname": "best_score",
+   "fieldtype": "Float",
+   "label": "Best Score",
+   "precision": "4"
+  },
+  {
+   "fieldname": "threshold_used",
+   "fieldtype": "Float",
+   "label": "Threshold Used",
+   "precision": "4"
+  },
+  {
+   "fieldname": "actor_user",
+   "fieldtype": "Link",
+   "label": "Actor User",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "event_time",
+   "fieldtype": "Datetime",
+   "label": "Event Time",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-13 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Face Attendance",
+ "name": "Face Registration Audit",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager"
+  }
+ ],
+ "sort_field": "event_time",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

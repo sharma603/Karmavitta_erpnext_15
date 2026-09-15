@@ -1,0 +1,320 @@
+{
+ "actions": [],
+ "creation": "2026-09-10 13:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "default_company",
+  "column_break_general",
+  "mobile_api_key",
+  "section_break_mobile",
+  "min_face_match_score",
+  "checkin_photo_required",
+  "allow_offline_sync",
+  "max_checkins_per_day",
+  "column_break_rules",
+  "require_gps",
+  "geofence_radius_meters",
+  "strict_geofence",
+  "auto_log_type",
+  "min_minutes_between_checkin_checkout",
+  "section_break_locations",
+  "allowed_locations",
+  "section_break_integration",
+  "sync_to_employee_checkin",
+  "sync_to_hr_attendance",
+  "kiosk_mode_enabled",
+  "section_break_biometric",
+  "biometric_model_name",
+  "biometric_model_version",
+  "biometric_embedding_dimension",
+  "face_similarity_metric",
+  "column_break_biometric",
+  "face_duplicate_threshold",
+  "face_match_threshold",
+  "face_same_person_update_threshold",
+  "liveness_provider",
+  "section_break_face_service",
+  "recognition_backend",
+  "face_service_url",
+  "face_service_api_key",
+  "face_service_timeout_seconds",
+  "section_break_help",
+  "mobile_setup_help"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enable Face Attendance"
+  },
+  {
+   "fieldname": "default_company",
+   "fieldtype": "Link",
+   "label": "Default Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "column_break_general",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "mobile_api_key",
+   "fieldtype": "Data",
+   "label": "Mobile API Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_mobile",
+   "fieldtype": "Section Break",
+   "label": "Mobile App Rules"
+  },
+  {
+   "default": "0.75",
+   "description": "Minimum score (0 to 1) required to accept face match from mobile app. Use ≥0.70 for FaceNet.",
+   "fieldname": "min_face_match_score",
+   "fieldtype": "Float",
+   "label": "Minimum Face Match Score",
+   "precision": "2"
+  },
+  {
+   "default": "0",
+   "fieldname": "checkin_photo_required",
+   "fieldtype": "Check",
+   "label": "Check-in Photo Required",
+   "description": "If enabled, each attendance uploads a photo (slower). Leave off for faster mobile check-in."
+  },
+  {
+   "default": "1",
+   "fieldname": "allow_offline_sync",
+   "fieldtype": "Check",
+   "label": "Allow Offline Sync"
+  },
+  {
+   "default": "20",
+   "fieldname": "max_checkins_per_day",
+   "fieldtype": "Int",
+   "label": "Max Check-ins Per Day"
+  },
+  {
+   "fieldname": "column_break_rules",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "require_gps",
+   "fieldtype": "Check",
+   "label": "Require GPS Location"
+  },
+  {
+   "default": "500",
+   "fieldname": "geofence_radius_meters",
+   "fieldtype": "Int",
+   "label": "Default Geofence Radius (meters)"
+  },
+  {
+   "default": "0",
+   "description": "When off (recommended): if the employee selects a known site (e.g. doha), GPS is recorded but a wrong map pin will not block check-in. When on: phone must be inside the geofence radius.",
+   "fieldname": "strict_geofence",
+   "fieldtype": "Check",
+   "label": "Strict Geofence"
+  },
+  {
+   "default": "Auto",
+   "description": "Auto = first log IN, second OUT, and so on",
+   "fieldname": "auto_log_type",
+   "fieldtype": "Select",
+   "label": "Log Type Mode",
+   "options": "Auto\nIN\nOUT\nAsk User"
+  },
+  {
+   "default": "10",
+   "description": "Minimum minutes after Check-in before Check-out is allowed. Set 0 to allow immediate check-out. Used by ERPNext API and the mobile app.",
+   "fieldname": "min_minutes_between_checkin_checkout",
+   "fieldtype": "Int",
+   "label": "Min Minutes Before Check-out",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "section_break_locations",
+   "fieldtype": "Section Break",
+   "label": "Allowed Locations (Geofence)"
+  },
+  {
+   "fieldname": "allowed_locations",
+   "fieldtype": "Table",
+   "label": "Allowed Locations",
+   "options": "Face Attendance Location"
+  },
+  {
+   "fieldname": "section_break_integration",
+   "fieldtype": "Section Break",
+   "label": "Integration"
+  },
+  {
+   "default": "1",
+   "description": "Creates ERPNext Employee Checkin when HRMS app is installed",
+   "fieldname": "sync_to_employee_checkin",
+   "fieldtype": "Check",
+   "label": "Sync to Employee Checkin"
+  },
+  {
+   "default": "1",
+   "description": "Create/update HR Attendance (Present) for the day from face IN/OUT. Also enables Employee Checkin sync.",
+   "fieldname": "sync_to_hr_attendance",
+   "fieldtype": "Check",
+   "label": "Sync to HR Attendance"
+  },
+  {
+   "default": "0",
+   "description": "Allow kiosk device check-in without employee login",
+   "fieldname": "kiosk_mode_enabled",
+   "fieldtype": "Check",
+   "label": "Kiosk Mode Enabled"
+  },
+  {
+   "fieldname": "section_break_biometric",
+   "fieldtype": "Section Break",
+   "label": "Face Biometric"
+  },
+  {
+   "default": "FaceNet",
+   "description": "Must match mobile on-device model (see apps/karmavitta/docs/FACE_BIOMETRIC_MODEL.md)",
+   "fieldname": "biometric_model_name",
+   "fieldtype": "Data",
+   "label": "Biometric Model Name"
+  },
+  {
+   "default": "1.0",
+   "fieldname": "biometric_model_version",
+   "fieldtype": "Data",
+   "label": "Biometric Model Version"
+  },
+  {
+   "default": "512",
+   "description": "FaceNet-512 → 512. MobileFaceNet → typically 192.",
+   "fieldname": "biometric_embedding_dimension",
+   "fieldtype": "Int",
+   "label": "Embedding Dimension"
+  },
+  {
+   "default": "cosine",
+   "description": "Cosine similarity after L2 normalization. Thresholds below apply to cosine (0–1 typical for matches).",
+   "fieldname": "face_similarity_metric",
+   "fieldtype": "Select",
+   "label": "Similarity Metric",
+   "options": "cosine"
+  },
+  {
+   "fieldname": "column_break_biometric",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0.72",
+   "description": "Reject registration when cosine similarity vs ANY other employee is ≥ this. FaceNet: use ~0.70–0.78. Too low (e.g. 0.50) falsely blocks different people.",
+   "fieldname": "face_duplicate_threshold",
+   "fieldtype": "Float",
+   "label": "Face Duplicate Threshold",
+   "precision": "3"
+  },
+  {
+   "default": "0.70",
+   "description": "Accept attendance verification when cosine ≥ this. FaceNet: use ~0.70–0.78. Values below 0.68 are floored automatically to avoid wrong-person matches.",
+   "fieldname": "face_match_threshold",
+   "fieldtype": "Float",
+   "label": "Face Match Threshold",
+   "precision": "3"
+  },
+  {
+   "default": "0.50",
+   "description": "Same employee may update without admin if new face cosine vs own template ≥ this; otherwise require re-registration approval.",
+   "fieldname": "face_same_person_update_threshold",
+   "fieldtype": "Float",
+   "label": "Same-Person Update Threshold",
+   "precision": "3"
+  },
+  {
+   "default": "none",
+   "description": "Modular PAD/liveness. Blink/head-turn alone are not strong anti-spoofing.",
+   "fieldname": "liveness_provider",
+   "fieldtype": "Select",
+   "label": "Liveness Provider",
+   "options": "none\nquality_multipose\nexternal"
+  },
+  {
+   "fieldname": "section_break_face_service",
+   "fieldtype": "Section Break",
+   "label": "ArcFace Face Service"
+  },
+  {
+   "default": "facenet_local",
+   "description": "facenet_local = on-device FaceNet embeddings (legacy). arcface_service = authoritative InsightFace/ArcFace FastAPI service (recommended).",
+   "fieldname": "recognition_backend",
+   "fieldtype": "Select",
+   "label": "Recognition Backend",
+   "options": "facenet_local\narcface_service"
+  },
+  {
+   "description": "Example: http://127.0.0.1:8090",
+   "fieldname": "face_service_url",
+   "fieldtype": "Data",
+   "label": "Face Service URL",
+   "depends_on": "eval:doc.recognition_backend=='arcface_service'"
+  },
+  {
+   "fieldname": "face_service_api_key",
+   "fieldtype": "Password",
+   "label": "Face Service API Key",
+   "depends_on": "eval:doc.recognition_backend=='arcface_service'"
+  },
+  {
+   "default": "30",
+   "fieldname": "face_service_timeout_seconds",
+   "fieldtype": "Int",
+   "label": "Face Service Timeout (seconds)",
+   "depends_on": "eval:doc.recognition_backend=='arcface_service'"
+  },
+  {
+   "fieldname": "section_break_help",
+   "fieldtype": "Section Break",
+   "label": "Mobile App Setup"
+  },
+  {
+   "fieldname": "mobile_setup_help",
+   "fieldtype": "HTML",
+   "label": "Setup Instructions",
+   "options": "<div class=\"text-muted\"><p><b>Mobile app configuration</b></p><ul><li>Site URL: your ERPNext site (example: https://erp.example.com)</li><li>API Key: copy <b>Mobile API Key</b> from this page</li><li>Employees need an active <b>Face Biometric</b> record before face check-in</li><li>Config: <code>karmavitta.api.mobile.get_config</code></li><li>Register: <code>karmavitta.api.biometric.register_face</code></li><li>Status: <code>karmavitta.api.biometric.get_face_registration_status</code></li></ul></div>"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-09-10 13:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Face Attendance",
+ "name": "Face Attendance Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "HR Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

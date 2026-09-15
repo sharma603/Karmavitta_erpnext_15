@@ -1,0 +1,234 @@
+{
+ "actions": [],
+ "autoname": "format:KFB-{employee}-{#####}",
+ "creation": "2026-09-13 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "company",
+  "column_break_1",
+  "registration_status",
+  "enabled",
+  "registered_on",
+  "updated_on",
+  "section_model",
+  "model_name",
+  "model_version",
+  "template_version",
+  "embedding_dimension",
+  "column_break_model",
+  "registered_device_id",
+  "last_verified",
+  "section_template",
+  "biometric_template",
+  "section_admin",
+  "reregistration_requested",
+  "reregistration_approved_by",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Employee Name",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "employee.company",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "registration_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Registration Status",
+   "options": "Pending\nActive\nDisabled\nRejected"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "registered_on",
+   "fieldtype": "Datetime",
+   "label": "Registered On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "updated_on",
+   "fieldtype": "Datetime",
+   "label": "Updated On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_model",
+   "fieldtype": "Section Break",
+   "label": "Model"
+  },
+  {
+   "default": "FaceNet",
+   "fieldname": "model_name",
+   "fieldtype": "Data",
+   "label": "Model Name",
+   "reqd": 1
+  },
+  {
+   "default": "1.0",
+   "fieldname": "model_version",
+   "fieldtype": "Data",
+   "label": "Model Version",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "template_version",
+   "fieldtype": "Data",
+   "label": "Template Version"
+  },
+  {
+   "default": "512",
+   "fieldname": "embedding_dimension",
+   "fieldtype": "Int",
+   "label": "Embedding Dimension",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_model",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "registered_device_id",
+   "fieldtype": "Data",
+   "label": "Registered Device ID"
+  },
+  {
+   "fieldname": "last_verified",
+   "fieldtype": "Datetime",
+   "label": "Last Verified",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_template",
+   "fieldtype": "Section Break",
+   "label": "Biometric Template"
+  },
+  {
+   "description": "L2-normalized face embedding JSON. Restricted field — never expose to employees.",
+   "fieldname": "biometric_template",
+   "fieldtype": "Long Text",
+   "label": "Biometric Template",
+   "permlevel": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_admin",
+   "fieldtype": "Section Break",
+   "label": "Re-registration"
+  },
+  {
+   "default": "0",
+   "fieldname": "reregistration_requested",
+   "fieldtype": "Check",
+   "label": "Re-registration Requested"
+  },
+  {
+   "fieldname": "reregistration_approved_by",
+   "fieldtype": "Link",
+   "label": "Re-registration Approved By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-13 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Face Attendance",
+ "name": "Face Biometric",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "permlevel": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "permlevel": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "permlevel": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "permlevel": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -5,3 +5,7 @@
 tags
 node_modules
 __pycache__
+# Face service local venv / env
+face_service/.venv/
+face_service/.env
+face_service/.pytest_cache/
