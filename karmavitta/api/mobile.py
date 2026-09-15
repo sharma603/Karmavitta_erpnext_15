@@ -523,6 +523,223 @@ def get_today_attendance_summary(company: str | None = None):
 		return _fail(str(exc))
 
 
+def _late_cutoff_for(employee, cache, today):
+	"""Latest allowed first-IN time. Shift start + 15 min grace, else 09:15."""
+	from datetime import date, datetime, time, timedelta
+
+	if employee in cache:
+		return cache[employee]
+	cutoff = time(9, 15)
+	try:
+		if frappe.db.exists("DocType", "Shift Type"):
+			shift = frappe.db.get_value("Employee", employee, "default_shift")
+			if shift:
+				start = frappe.db.get_value("Shift Type", shift, "start_time")
+				if start is not None:
+					if isinstance(start, timedelta):
+						secs = int(start.total_seconds())
+					else:
+						secs = start.hour * 3600 + start.minute * 60 + start.second
+					cutoff = (
+						datetime.combine(today, time(0, 0))
+						+ timedelta(seconds=secs + 900)
+					).time()
+	except Exception:
+		pass
+	cache[employee] = cutoff
+	return cutoff
+
+
+@frappe.whitelist()
+def get_my_attendance_dashboard():
+	"""Dashboard design data: company week/month chart + personal stats + recent.
+
+	Week: Mon–Sun daily present/absent/late (late = first IN after shift/grace).
+	Month: W1–W4 average daily counts. Stats/recent: logged-in user's month.
+	"""
+	from collections import defaultdict
+	from datetime import timedelta
+
+	try:
+		employee = get_employee_for_user()
+		settings = get_settings()
+		company = settings.default_company
+		now = now_datetime()
+		today = getdate(now)
+
+		emp_filters = {"status": "Active"}
+		if company:
+			emp_filters["company"] = company
+		total = frappe.db.count("Employee", filters=emp_filters)
+
+		monday = today - timedelta(days=today.weekday())
+		month_start = today.replace(day=1)
+		query_start = min(monday, month_start)
+
+		log_filters = {"log_type": "IN", "log_time": [">=", query_start]}
+		if company:
+			log_filters["company"] = company
+		month_logs = frappe.get_all(
+			"Face Attendance Log",
+			filters=log_filters,
+			fields=["employee", "log_time"],
+			order_by="log_time asc",
+		)
+
+		day_first: dict[str, dict[str, object]] = defaultdict(dict)
+		for row in month_logs:
+			if not row.employee or not row.log_time:
+				continue
+			day_iso = getdate(row.log_time).isoformat()
+			if row.employee not in day_first[day_iso]:
+				day_first[day_iso][row.employee] = row.log_time.time()
+
+		shift_cache: dict[str, object] = {}
+
+		def day_counts(day_iso, is_future):
+			if is_future:
+				return {"present": 0, "absent": 0, "late": 0}
+			firsts = day_first.get(day_iso, {})
+			late = sum(
+				1
+				for emp, t in firsts.items()
+				if t > _late_cutoff_for(emp, shift_cache, today)
+			)
+			present = len(firsts)
+			return {"present": present, "absent": max(total - present, 0), "late": late}
+
+		labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+		week = []
+		for i in range(7):
+			day = monday + timedelta(days=i)
+			counts = day_counts(day.isoformat(), day > today)
+			week.append({"label": labels[i], "date": day.isoformat(), **counts})
+
+		next_month = (month_start + timedelta(days=32)).replace(day=1)
+		last_day = (next_month - timedelta(days=1)).day
+		month = []
+		for label, start_no, end_no in [
+			("W1", 1, 7),
+			("W2", 8, 14),
+			("W3", 15, 21),
+			("W4", 22, last_day),
+		]:
+			present_sum = absent_sum = late_sum = days = 0
+			for day_no in range(start_no, end_no + 1):
+				day = month_start + timedelta(days=day_no - 1)
+				if day > today:
+					continue
+				counts = day_counts(day.isoformat(), False)
+				present_sum += counts["present"]
+				absent_sum += counts["absent"]
+				late_sum += counts["late"]
+				days += 1
+			if days:
+				month.append(
+					{
+						"label": label,
+						"present": round(present_sum / days),
+						"absent": round(absent_sum / days),
+						"late": round(late_sum / days),
+					}
+				)
+			else:
+				month.append({"label": label, "present": 0, "absent": 0, "late": 0})
+
+		working = sum(
+			1
+			for day_no in range(1, today.day + 1)
+			if (month_start + timedelta(days=day_no - 1)).weekday() != 6
+		)
+		my_days: dict[str, object] = {}
+		for day_iso, firsts in day_first.items():
+			if employee and employee in firsts:
+				my_days[day_iso] = firsts[employee]
+		my_late_days = (
+			{
+				day_iso
+				for day_iso, first_in in my_days.items()
+				if first_in > _late_cutoff_for(employee, shift_cache, today)
+			}
+			if employee
+			else set()
+		)
+		leave = half = 0
+		try:
+			if employee and frappe.db.exists("DocType", "Attendance"):
+				records = frappe.get_all(
+					"Attendance",
+					filters={
+						"employee": employee,
+						"attendance_date": [">=", month_start],
+						"docstatus": ["!=", 2],
+					},
+					fields=["status", "late_entry", "attendance_date"],
+				)
+				leave = sum(1 for r in records if r.status == "On Leave")
+				half = sum(1 for r in records if r.status == "Half Day")
+				my_late_days |= {
+					getdate(r.attendance_date).isoformat()
+					for r in records
+					if r.status == "Present" and cint(r.late_entry)
+				}
+		except Exception:
+			pass
+		my_present = len(set(my_days) - my_late_days)
+		my_late = len(my_late_days)
+		my_absent = max(working - my_present - my_late - leave - half, 0)
+
+		recent = []
+		if employee:
+			my_logs = frappe.get_all(
+				"Face Attendance Log",
+				filters={"employee": employee},
+				fields=["log_type", "log_time"],
+				order_by="log_time desc",
+				limit=200,
+			)
+			by_day: dict[str, list] = defaultdict(list)
+			for row in my_logs:
+				by_day[getdate(row.log_time).isoformat()].append(row)
+			yesterday_iso = (today - timedelta(days=1)).isoformat()
+			for day_iso in sorted(by_day, reverse=True)[:3]:
+				rows = by_day[day_iso]
+				ins = [r.log_time for r in rows if r.log_type == "IN"]
+				outs = [r.log_time for r in rows if r.log_type == "OUT"]
+				day = getdate(day_iso)
+				if day_iso == today.isoformat():
+					day_label = "Today"
+				elif day_iso == yesterday_iso:
+					day_label = "Yesterday"
+				else:
+					day_label = day.strftime("%A")
+				in_label = min(ins).strftime("%I:%M %p").lstrip("0") if ins else "--"
+				out_label = max(outs).strftime("%I:%M %p").lstrip("0") if outs else "--"
+				recent.append(
+					{
+						"label": day_label,
+						"time": f"{in_label} → {out_label}",
+						"status": "Late" if day_iso in my_late_days else "Present",
+					}
+				)
+
+		return _ok(
+			week=week,
+			month=month,
+			stats={
+				"working": working,
+				"present": my_present,
+				"absent": my_absent,
+				"late": my_late,
+				"leave": leave,
+				"half": half,
+			},
+			recent=recent,
+		)
+	except Exception as exc:
+		return _fail(str(exc))
+
+
 @frappe.whitelist(allow_guest=True)
 def sync_offline_logs(logs, api_key: str | None = None):
 	"""Bulk sync offline attendance logs from mobile."""
