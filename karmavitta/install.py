@@ -9,6 +9,7 @@ from frappe.utils import cint
 def after_install():
 	_ensure_settings()
 	_ensure_workspace()
+	_ensure_procfile_entry()
 	frappe.db.commit()
 
 
@@ -16,6 +17,7 @@ def after_migrate():
 	_ensure_workspace()
 	_ensure_face_biometric_workspace_link()
 	_enable_hr_sync_defaults()
+	_ensure_procfile_entry()
 	frappe.db.commit()
 
 
@@ -46,6 +48,34 @@ def _enable_hr_sync_defaults():
 			doc.save(ignore_permissions=True)
 	except Exception:
 		frappe.log_error(title="Karmavitta HR sync defaults", message=frappe.get_traceback())
+
+
+def _ensure_procfile_entry():
+	"""Add face_service to bench Procfile so `bench start` auto-runs it.
+
+	Runs on install/migrate. Safe to re-run: skips if an entry already exists.
+	The bench_start.sh script itself auto-creates .venv/.env on first run.
+	"""
+	try:
+		import os
+
+		from frappe.utils import get_bench_path
+
+		bench_path = get_bench_path()
+		procfile = os.path.join(bench_path, "Procfile")
+		if not os.path.exists(procfile):
+			return
+		with open(procfile) as f:
+			content = f.read()
+		if "face_service:" in content or "face_service/scripts/bench_start.sh" in content:
+			return
+		with open(procfile, "a") as f:
+			if content and not content.endswith("\n"):
+				f.write("\n")
+			f.write("\n# Karmavitta ArcFace face recognition (apps/karmavitta/face_service)\n")
+			f.write("face_service: bash apps/karmavitta/face_service/scripts/bench_start.sh\n")
+	except Exception:
+		frappe.log_error(title="Karmavitta Procfile Setup", message=frappe.get_traceback())
 
 
 def _ensure_settings():
