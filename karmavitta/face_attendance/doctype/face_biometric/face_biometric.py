@@ -80,7 +80,10 @@ class FaceBiometric(Document):
 			)
 			if dup and dup.get("employee"):
 				# Privacy: do not name the matched employee
+				score = flt(dup.get("score"))
 				frappe.throw(
-					"This face is already registered with another employee.",
+					"This face looks too similar to another registered employee "
+					f"(match score {score:.2f}). If this is a different person, retry "
+					"with a clearer straight-on photo.",
 					frappe.ValidationError,
 				)

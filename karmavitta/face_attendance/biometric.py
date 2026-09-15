@@ -18,13 +18,18 @@ from karmavitta.face_attendance.utils import can_manage_employee_face, get_setti
 DEFAULT_MODEL_NAME = "FaceNet"
 DEFAULT_MODEL_VERSION = "1.0"
 DEFAULT_EMBEDDING_DIM = 512
-# FaceNet cosine: same person often ~0.70–0.95; different people often ~0.20–0.65.
-# Duplicate reject must be high enough to avoid blocking new enrollments.
-DEFAULT_DUPLICATE_THRESHOLD = 0.72
+# FaceNet cosine (this on-device model):
+# - same person often ~0.85–0.98
+# - different people often ~0.20–0.80 (impostors can reach ~0.75+)
+# Duplicate reject must stay ABOVE typical impostor range or new enrollments fail
+# with a false "already registered with another employee".
+DEFAULT_DUPLICATE_THRESHOLD = 0.85
 # Attendance match: stay above typical impostor range (~0.55–0.65)
 DEFAULT_MATCH_THRESHOLD = 0.70
 DEFAULT_MATCH_MARGIN = 0.10
 DEFAULT_SAME_PERSON_UPDATE = 0.50
+# Never treat scores below this as duplicates (guards misconfigured Desk values)
+MIN_DUPLICATE_THRESHOLD = 0.82
 
 
 def _ok(**kwargs):
@@ -43,7 +48,7 @@ def biometric_settings(settings=None) -> dict[str, Any]:
 	settings = settings or get_settings()
 	duplicate = flt(getattr(settings, "face_duplicate_threshold", None)) or DEFAULT_DUPLICATE_THRESHOLD
 	# Guard misconfigured Desk values that falsely reject different people
-	if duplicate < 0.68:
+	if duplicate < MIN_DUPLICATE_THRESHOLD:
 		duplicate = DEFAULT_DUPLICATE_THRESHOLD
 	match = flt(
 		getattr(settings, "face_match_threshold", None)
@@ -211,8 +216,8 @@ def find_duplicate_biometric(
 	if not vector or len(vector) < 64:
 		return None
 
-	# Floor: never treat weak scores as duplicates (guards misconfigured settings)
-	effective_threshold = max(flt(threshold), 0.68)
+	# Floor: never treat weak/impostor-range scores as duplicates
+	effective_threshold = max(flt(threshold), MIN_DUPLICATE_THRESHOLD)
 
 	rows = frappe.db.sql(
 		"""
@@ -372,17 +377,23 @@ def register_face_biometric(
 			error_code="FACE_ALREADY_REGISTERED",
 			device_id=device_id,
 			best_score=dup_score,
-			threshold_used=cfg["duplicate_threshold"],
+			threshold_used=dup.get("threshold_used") or cfg["duplicate_threshold"],
 			model_name=cfg["model_name"],
 			model_version=cfg["model_version"],
 			embedding_dimension=cfg["embedding_dimension"],
 			# Do NOT store matched employee in remarks
 			remarks="Duplicate face vs another active biometric",
 		)
-		# Privacy: do not reveal which employee matched
+		# Privacy: do not reveal which employee matched; include score for support
+		score_txt = f"{flt(dup_score):.2f}" if dup_score is not None else "?"
 		return _fail(
-			"This face is already registered with another employee.",
+			"This face looks too similar to another registered employee "
+			f"(match score {score_txt}). If this is a different person, retry with "
+			"brighter light and a straight-on photo. If it is the same person, open "
+			"their employee record and use Update Face.",
 			"FACE_ALREADY_REGISTERED",
+			best_score=dup_score,
+			threshold_used=dup.get("threshold_used") or cfg["duplicate_threshold"],
 		)
 
 	template_json = json.dumps(vector)

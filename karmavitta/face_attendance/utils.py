@@ -330,8 +330,8 @@ def mobile_config_dict(settings=None):
 			),
 			"similarity_metric": getattr(settings, "face_similarity_metric", None) or "cosine",
 			"duplicate_threshold": max(
-				flt(getattr(settings, "face_duplicate_threshold", None) or 0.72),
-				0.68,
+				flt(getattr(settings, "face_duplicate_threshold", None) or 0.85),
+				0.82,
 			),
 			"match_threshold": max(
 				flt(

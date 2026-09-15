@@ -212,8 +212,8 @@
    "fieldtype": "Column Break"
   },
   {
-   "default": "0.72",
-   "description": "Reject registration when cosine similarity vs ANY other employee is ≥ this. FaceNet: use ~0.70–0.78. Too low (e.g. 0.50) falsely blocks different people.",
+   "default": "0.85",
+   "description": "Reject registration only when cosine similarity vs ANY other employee is ≥ this. FaceNet: use ~0.85. Values below ~0.82 falsely block different people.",
    "fieldname": "face_duplicate_threshold",
    "fieldtype": "Float",
    "label": "Face Duplicate Threshold",
