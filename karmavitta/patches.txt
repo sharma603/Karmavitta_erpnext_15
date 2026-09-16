@@ -5,3 +5,4 @@ karmavitta.patches.v1_0.rename_karmavritta_face_doctypes
 karmavitta.patches.v1_0.fix_face_duplicate_threshold
 karmavitta.patches.v1_1.raise_face_duplicate_threshold
 karmavitta.patches.v1_1.prepare_arcface_migration
+karmavitta.patches.v1_1.enforce_arcface_only

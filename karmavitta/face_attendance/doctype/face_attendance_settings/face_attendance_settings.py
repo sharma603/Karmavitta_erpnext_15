@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import frappe
 from frappe.model.document import Document
-from frappe.utils import random_string
+from frappe.utils import cint, random_string
 
 
 class FaceAttendanceSettings(Document):
@@ -13,21 +13,79 @@ class FaceAttendanceSettings(Document):
 		if not self.mobile_api_key:
 			self.mobile_api_key = random_string(32)
 
+		# ── High-level ArcFace enforcement ──
+		if getattr(self, "recognition_backend", None) != "arcface_service":
+			self.recognition_backend = "arcface_service"
+		if getattr(self, "biometric_model_name", None) not in (None, "", "ArcFace"):
+			if (self.biometric_model_name or "").lower() != "arcface":
+				self.biometric_model_name = "ArcFace"
+		if getattr(self, "biometric_model_version", None) not in (None, "", "insightface-buffalo_l-1.0"):
+			if "arcface" not in (self.biometric_model_version or "").lower() and "insightface" not in (self.biometric_model_version or "").lower():
+				self.biometric_model_version = "insightface-buffalo_l-1.0"
+		if cint(getattr(self, "biometric_embedding_dimension", None)) != 512:
+			self.biometric_embedding_dimension = 512
+		if getattr(self, "face_similarity_metric", None) != "cosine":
+			self.face_similarity_metric = "cosine"
+
+		# ── High-level threshold hardening (ArcFace scale 0.35–0.60) ──
 		if self.min_face_match_score is not None:
 			self.min_face_match_score = max(0.0, min(float(self.min_face_match_score), 1.0))
-			# Prevent Desk values that accept wrong people (FaceNet impostors ~0.55–0.65)
-			if float(self.min_face_match_score) < 0.68:
-				self.min_face_match_score = 0.70
+			if float(self.min_face_match_score) < 0.35:
+				self.min_face_match_score = 0.40
+			if float(self.min_face_match_score) > 0.60:
+				self.min_face_match_score = 0.40
 
 		if getattr(self, "face_match_threshold", None) is not None:
 			self.face_match_threshold = max(0.0, min(float(self.face_match_threshold), 1.0))
-			if float(self.face_match_threshold) < 0.68:
-				self.face_match_threshold = 0.70
+			if float(self.face_match_threshold) < 0.35:
+				self.face_match_threshold = 0.40
+			if float(self.face_match_threshold) > 0.60:
+				self.face_match_threshold = 0.40
 
+		if getattr(self, "face_duplicate_threshold", None) is not None:
+			self.face_duplicate_threshold = max(0.0, min(float(self.face_duplicate_threshold), 1.0))
+			if float(self.face_duplicate_threshold) < 0.35:
+				self.face_duplicate_threshold = 0.45
+			if float(self.face_duplicate_threshold) > 0.65:
+				self.face_duplicate_threshold = 0.45
+
+		if getattr(self, "face_same_person_update_threshold", None) is not None:
+			self.face_same_person_update_threshold = max(0.0, min(float(self.face_same_person_update_threshold), 1.0))
+
+		# ── High-level service validation ──
+		if getattr(self, "face_service_url", None):
+			url = str(self.face_service_url).strip()
+			if not (url.startswith("http://") or url.startswith("https://")):
+				frappe.throw("Face Service URL must start with http:// or https:// (e.g. http://127.0.0.1:8090)")
+			# normalize
+			self.face_service_url = url.rstrip("/")
+		elif self.recognition_backend == "arcface_service":
+			frappe.throw("Face Service URL is required for ArcFace backend")
+
+		if getattr(self, "face_service_timeout_seconds", None) is not None:
+			self.face_service_timeout_seconds = max(5, min(int(self.face_service_timeout_seconds), 120))
+
+		if getattr(self, "face_service_api_key", None):
+			key = str(self.face_service_api_key).strip()
+			if len(key) < 16:
+				frappe.throw("Face Service API Key must be at least 16 characters (32 recommended)")
+		elif self.recognition_backend == "arcface_service" and not self.is_new():
+			# allow empty on first insert; enforce after
+			pass
+
+		# ── High-level mobile / geofence / HR defaults ──
 		if self.min_minutes_between_checkin_checkout is not None:
 			self.min_minutes_between_checkin_checkout = max(
 				0, int(self.min_minutes_between_checkin_checkout)
 			)
+		if getattr(self, "geofence_radius_meters", None) is not None:
+			self.geofence_radius_meters = max(100, min(int(self.geofence_radius_meters), 5000))
+		if getattr(self, "max_checkins_per_day", None) is not None:
+			self.max_checkins_per_day = max(1, min(int(self.max_checkins_per_day), 100))
+
+		# Enforce enterprise security defaults
+		if not getattr(self, "mobile_api_key", None):
+			self.mobile_api_key = random_string(32)
 
 
 def _require_settings_write():

@@ -40,8 +40,7 @@ def register_face(
 ):
 	"""Register a face for an employee (server-side uniqueness).
 
-	When Recognition Backend = arcface_service, pass ``face_image`` (base64).
-	Legacy FaceNet path still accepts ``biometric_template``.
+	Requires ``face_image`` (base64) — ArcFace backend only.
 	"""
 	from karmavitta.face_attendance.utils import get_settings
 	from karmavitta.services.face_service_client import (

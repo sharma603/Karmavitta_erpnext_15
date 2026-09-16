@@ -2,15 +2,15 @@
 
 ## 1. Existing architecture found
 
-- Mobile: React Native + camera-kit + on-device FaceNet-512 TFLite → embedding
+- Mobile: React Native + camera-kit → face_image to ArcFace service (no on-device embedding)
 - ERPNext Karmavritta: stores Face Biometric, cosine 1:N, Face Attendance Log → Employee Checkin
 - No separate ML service previously; no Device Registration DocType
 
 ## 2. Root cause(s) of wrong-employee bug
 
 1. Client could influence identity (later fixed to ignore client employee)
-2. FaceNet match threshold too low historically (~0.55)
-3. FaceNet templates for different people can be relatively close (~0.67 observed)
+2. Legacy on-device match threshold too low historically (~0.55)
+3. Legacy templates for different people can be relatively close (~0.67 observed)
 4. Authoritative recognition needed on backend with stronger ArcFace + image pipeline
 
 ## 3. Files changed
@@ -39,12 +39,12 @@ Full FastAPI service tree under `karmavritta-face-service/` with docs + matching
 ## 5. Database / DocType changes
 
 Face Attendance Settings additions:
-- `recognition_backend` (`facenet_local` | `arcface_service`)
+- `recognition_backend` (`arcface_service` only)
 - `face_service_url`
 - `face_service_api_key` (Password)
 - `face_service_timeout_seconds`
 
-Face Biometric unchanged (already has model metadata fields).
+Face Biometric defaults updated to ArcFace (`ArcFace`, `insightface-buffalo_l-1.0`, `arcface-1`).
 
 ## 6. ML model configuration
 
@@ -76,14 +76,13 @@ ERPNext:
 ## 9. Migration steps
 
 1. Install & run face service
-2. Keep `facenet_local` until healthy
-3. Switch to `arcface_service` + URL + key
-4. Re-register all employees (FaceNet templates ignored, not converted)
-5. Reload mobile app
+2. Configure `arcface_service` + URL + key (only backend)
+3. Re-register all employees (legacy templates ignored, not converted)
+4. Reload mobile app
 
 ## 10. Tests performed
 
-- `tests/test_matching.py`: A→A, B→B, unknown NO_MATCH, duplicate, FaceNet skipped, company scope
+- `tests/test_matching.py`: A→A, B→B, unknown NO_MATCH, duplicate, legacy skipped, company scope
 - ERPNext migrate + clear-cache
 
 Full InsightFace inference tests require model download on the deployment host.

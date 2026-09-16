@@ -10,7 +10,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
 	model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-	# Auth
+	# Service / Network — bench_start.sh reads FACE_SERVICE_PORT/HOST; keep in sync
+	face_service_port: int = 8090
+	face_service_host: str = "127.0.0.1"
 	face_service_api_key: str = "change-me-face-service-key"
 	cors_origins: list[str] = ["*"]
 

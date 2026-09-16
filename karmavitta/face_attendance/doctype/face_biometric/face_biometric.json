@@ -92,26 +92,26 @@
    "fieldtype": "Section Break",
    "label": "Model"
   },
-  {
-   "default": "FaceNet",
-   "fieldname": "model_name",
-   "fieldtype": "Data",
-   "label": "Model Name",
-   "reqd": 1
-  },
-  {
-   "default": "1.0",
-   "fieldname": "model_version",
-   "fieldtype": "Data",
-   "label": "Model Version",
-   "reqd": 1
-  },
-  {
-   "default": "1",
-   "fieldname": "template_version",
-   "fieldtype": "Data",
-   "label": "Template Version"
-  },
+   {
+    "default": "ArcFace",
+    "fieldname": "model_name",
+    "fieldtype": "Data",
+    "label": "Model Name",
+    "reqd": 1
+   },
+   {
+    "default": "insightface-buffalo_l-1.0",
+    "fieldname": "model_version",
+    "fieldtype": "Data",
+    "label": "Model Version",
+    "reqd": 1
+   },
+   {
+    "default": "arcface-1",
+    "fieldname": "template_version",
+    "fieldtype": "Data",
+    "label": "Template Version"
+   },
   {
    "default": "512",
    "fieldname": "embedding_dimension",

@@ -119,14 +119,12 @@ CTX_ID=0
 ONNX_PROVIDER=CUDAExecutionProvider
 ```
 
-### 2.5 Legacy mode (no face service)
+### 2.5 Backend
 
-If you only want on-device FaceNet matching from the mobile app, set Desk →
-Recognition Backend = `facenet_local` and skip the whole face service. ArcFace
-(`arcface_service`) is recommended for accuracy and anti-duplicate control.
+Only **ArcFace** (`arcface_service`) is supported. `Face Service URL` and `API Key` must be configured; on-device embeddings are not supported.
 
 More docs: `face_service/README.md` + `face_service/docs/` (INSTALL, API, SECURITY,
-MODEL, DEPLOYMENT, MIGRATION).
+MODEL, DEPLOYMENT).
 
 ---
 
@@ -144,7 +142,7 @@ Open **Face Attendance → Face Attendance Settings**. Every group explained:
 ### Mobile App Rules
 | Field | Default | Meaning |
 |-------|---------|---------|
-| Minimum Face Match Score | `0.75` | Reject mobile FaceNet matches below this (use ≥ 0.70) |
+| Minimum Face Match Score | `0.40` | Reject ArcFace matches below this |
 | Check-in Photo Required | off | If on, every check-in uploads a photo (slower) |
 | Allow Offline Sync | on | Phones queue logs offline and upload later |
 | Max Check-ins Per Day | `20` | Abuse guard |
@@ -168,17 +166,17 @@ Used by GPS validation and the mobile location picker.
 ### Face Biometric
 | Field | Default | Meaning |
 |-------|---------|---------|
-| Biometric Model Name/Version/Dimension | FaceNet / 1.0 / 512 | Must match the mobile on-device model |
+| Biometric Model Name/Version/Dimension | ArcFace / insightface-buffalo_l-1.0 / 512 | ArcFace InsightFace model |
 | Similarity Metric | cosine | L2-normalized cosine similarity |
-| Face Duplicate Threshold | `0.85` | Block registration if similarity vs ANY other employee ≥ this. Keep ~0.85 — lower values falsely block different people |
-| Face Match Threshold | `0.70` | Accept verification if similarity ≥ this (0.70–0.78 for FaceNet; below 0.68 is auto-floored) |
+| Face Duplicate Threshold | `0.45` | Block registration if ArcFace similarity vs ANY other employee ≥ this |
+| Face Match Threshold | `0.40` | Accept verification if similarity ≥ this |
 | Same-Person Update Threshold | `0.50` | Employee can update own face without admin if new capture vs own template ≥ this |
 | Liveness Provider | `none` | `none` / `quality_multipose` / `external` (blink alone is not strong anti-spoof) |
 
 ### ArcFace Face Service
 | Field | Meaning |
 |-------|---------|
-| Recognition Backend | `facenet_local` (mobile only) or `arcface_service` (recommended) |
+| Recognition Backend | `arcface_service` (only option) |
 | Face Service URL | e.g. `http://127.0.0.1:8090` |
 | Face Service API Key | Same secret as `face_service/.env` → `FACE_SERVICE_API_KEY` |
 | Face Service Timeout | `30` seconds |
@@ -214,18 +212,17 @@ Used by GPS validation and the mobile location picker.
 ## 6. How attendance works (request flow)
 
 ```text
-Phone captures face
-  → embedding (on-device FaceNet) + GPS + location + device info
-  → POST karmavitta.api.mobile.checkin (API key + session, or kiosk API key)
+Phone captures face image + GPS + location + device info
+  → POST karmavitta.api.mobile.checkin (API key + session, or kiosk API key) with face_image
       → ERPNext validates: key, session, location, GPS/geofence, timing rules
-      → ERPNext → face_service :8090 verify (ArcFace compare vs saved template)
+      → ERPNext → face_service :8090 verify (ArcFace compare vs saved templates)
       → score ≥ threshold? accept : reject
       → creates Face Attendance Log (IN/OUT per Log Type Mode)
       → syncs Employee Checkin + HR Attendance (if enabled + HRMS installed)
   → phone shows AttendanceResult (IN/OUT, employee, time)
 ```
 
-Registration flow: capture → embedding → server duplicate scan
+Registration flow: capture face_image → POST to face_service → duplicate scan vs all ArcFace templates
 (`FACE_ALREADY_REGISTERED` if match vs someone else) → save Face Biometric +
 Registration Audit entry.
 
@@ -284,8 +281,8 @@ curl -X POST "https://YOUR-SITE/api/method/karmavitta.api.mobile.checkin" \
 | `Cannot connect to 127.0.0.1:8090` | Service not running — check `bench start` log tab; first run installs venv (slow) |
 | Mobile "Cannot reach ERPNext" | Phone and server must share network; Site URL must be LAN IP (`http://192.168.x.x:8000`), not `localhost` |
 | "Session expired" in app | Login again; check Site URL didn't change |
-| Duplicate-face false block | Raise Desk → Face Duplicate Threshold toward `0.85`; ArcFace `.env` duplicate threshold `0.45` is separate (server-service scale) |
-| Wrong-person match | Raise Face Match Threshold (`0.70`–`0.78`); never go below `0.68` |
+| Duplicate-face false block | Raise Desk → Face Duplicate Threshold toward `0.45`; ArcFace `.env` duplicate threshold `0.45` is authoritative |
+| Wrong-person match | Raise Face Match Threshold (`0.40`–`0.50`); never go below `0.35` |
 | No Employee Checkin created | Install HRMS app + enable both sync flags |
 | `.env` lost after fresh clone | Expected — `.env` is gitignored. Copy from `.env.example` and set the key |
 

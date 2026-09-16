@@ -6,38 +6,32 @@ Documented before implementation (required).
 
 | Item | Value |
 |------|--------|
-| **Model name** | FaceNet |
-| **Model version** | `1.0` (`facenet_512.tflite`) |
-| **Format** | TensorFlow Lite |
-| **Input image size** | **160 × 160** RGB |
-| **Preprocessing** | Resize face crop → RGB float32 → scale to **[-1, 1]** (`(pixel - 127.5) / 128.0`) |
+| **Model name** | ArcFace |
+| **Model version** | `insightface-buffalo_l-1.0` |
+| **Format** | ONNX (InsightFace buffalo_l) |
+| **Input image size** | **112 × 112** (aligned face crop) |
+| **Preprocessing** | InsightFace face detection + alignment → RGB float32 → normalized |
 | **Embedding dimension** | **512** |
 | **Template normalization** | **L2 normalize** embedding so \(\|v\|_2 = 1\) |
 | **Similarity method** | **Cosine similarity** (equivalent to dot product after L2 norm) |
-| **Duplicate / match decision** | Cosine similarity **≥ configurable threshold** |
-| **License** | Apache-2.0 compatible FaceNet TFLite packaging (on-device FaceNet assets) |
-| **Android compatibility** | API 24+, TFLite Interpreter (CPU; GPU delegate optional later) |
-| **Expected mobile performance** | ~100–350 ms per embedding on mid-range Android (CPU) |
+| **Duplicate / match decision** | Cosine similarity **≥ configurable threshold** (service thresholds) |
+| **License** | InsightFace MIT, model pack may be non-commercial — verify before commercial deployment |
+| **Service** | FastAPI `face_service` (InsightFace/ONNX Runtime), CPU or GPU |
 
-## Why this model (not pose/bounds)
+## Why ArcFace
 
-The previous mobile path stored camera **pose/bounds** vectors (~10 floats). Those are **not** biometric identity and cannot enforce “one face → one employee.”
+ArcFace (InsightFace) provides strong identity discrimination and is the **only** supported backend. Server-side verification and duplicate detection compare against **all** active ArcFace templates via the face service.
 
-FaceNet-512 produces a real 512-D identity embedding suitable for:
+Legacy on-device embeddings are **not** supported.
 
-1. Server-side duplicate detection against **all** active templates  
-2. On-device / server verification for attendance  
+## Threshold calibration (ArcFace)
 
-MobileFaceNet (112×112 → 192-D) remains a supported upgrade path via settings (`model_name` / `model_version` / `embedding_dimension`) without changing the DocType schema.
-
-## Threshold calibration (do not hard-code forever)
-
-Default starting values (must be tuned on your cameras and workforce):
+Default values (service is authoritative):
 
 | Setting | Default | Meaning |
 |---------|---------|---------|
-| `face_duplicate_threshold` | **0.72** | Reject registration if cosine ≥ this vs any other employee. Values ≤0.55 falsely block different people. |
-| `face_match_threshold` | **0.58** | Accept attendance match if cosine ≥ this |
+| `face_duplicate_threshold` | **0.45** | Reject registration if ArcFace cosine ≥ this vs any other employee |
+| `face_match_threshold` | **0.40** | Accept attendance match if cosine ≥ this |
 | `face_same_person_update_threshold` | **0.50** | Existing employee re-register without admin if cosine ≥ this vs own template |
 
 Metric: **cosine similarity** in \([-1, 1]\) (after L2). Higher = more similar.

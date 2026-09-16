@@ -288,19 +288,15 @@ def get_employee_for_user(user: str | None = None) -> str | None:
 
 
 def get_active_face_profile(employee: str):
-	"""Prefer Face Biometric; fall back to legacy Employee Face Profile."""
+	"""Return active Face Biometric (ArcFace only)."""
 	biometric = frappe.db.get_value(
 		"Face Biometric",
 		{"employee": employee, "enabled": 1, "registration_status": "Active"},
 		"name",
 	)
-	if biometric:
-		return frappe.get_doc("Face Biometric", biometric)
-
-	name = frappe.db.get_value("Employee Face Profile", {"employee": employee, "status": "Active"})
-	if not name:
+	if not biometric:
 		frappe.throw("No active face profile found for this employee")
-	return frappe.get_doc("Employee Face Profile", name)
+	return frappe.get_doc("Face Biometric", biometric)
 
 
 def mobile_config_dict(settings=None):
@@ -321,36 +317,33 @@ def mobile_config_dict(settings=None):
 		"sync_to_hr_attendance": bool(getattr(settings, "sync_to_hr_attendance", 1)),
 		"default_company": settings.default_company,
 		"allowed_locations": get_attendance_locations(settings),
-		"recognition_backend": getattr(settings, "recognition_backend", None) or "facenet_local",
+		"recognition_backend": getattr(settings, "recognition_backend", None) or "arcface_service",
 		"biometric": {
-			"model_name": getattr(settings, "biometric_model_name", None) or "FaceNet",
-			"model_version": getattr(settings, "biometric_model_version", None) or "1.0",
+			"model_name": getattr(settings, "biometric_model_name", None) or "ArcFace",
+			"model_version": getattr(settings, "biometric_model_version", None) or "insightface-buffalo_l-1.0",
 			"embedding_dimension": cint(
 				getattr(settings, "biometric_embedding_dimension", None) or 512
 			),
 			"similarity_metric": getattr(settings, "face_similarity_metric", None) or "cosine",
 			"duplicate_threshold": max(
-				flt(getattr(settings, "face_duplicate_threshold", None) or 0.85),
-				0.82,
+				flt(getattr(settings, "face_duplicate_threshold", None) or 0.45),
+				0.40,
 			),
 			"match_threshold": max(
 				flt(
 					getattr(settings, "face_match_threshold", None)
 					or getattr(settings, "min_face_match_score", None)
-					or 0.70
+					or 0.40
 				),
 				flt(getattr(settings, "min_face_match_score", None) or 0),
-				0.68,
+				0.35,
 			),
-			"match_margin": 0.10,
+			"match_margin": 0.05,
 			"same_person_update_threshold": flt(
-				getattr(settings, "face_same_person_update_threshold", None) or 0.55
+				getattr(settings, "face_same_person_update_threshold", None) or 0.50
 			),
 			"liveness_provider": getattr(settings, "liveness_provider", None) or "none",
-			"requires_face_image": (
-				(getattr(settings, "recognition_backend", None) or "").strip().lower()
-				== "arcface_service"
-			),
+			"requires_face_image": True,
 		},
 	}
 
@@ -398,30 +391,24 @@ def encoding_vector_length(face_encoding) -> int:
 
 
 def is_biometric_face_encoding(face_encoding) -> bool:
-	"""True for real embeddings (e.g. MobileFaceNet). Pose/bounds vectors are ~10-D."""
+	"""True for real ArcFace embeddings. Pose/bounds vectors are ~10-D."""
 	encoding = parse_face_encoding(face_encoding)
 	if isinstance(encoding, dict):
 		kind = str(encoding.get("type") or encoding.get("kind") or "").lower()
 		if kind in ("pose", "pose_v1", "bounds"):
 			return False
-		if kind in ("embedding", "mobilefacenet", "arcface", "biometric"):
+		if kind in ("embedding", "arcface", "biometric"):
 			return True
 	# Camera-kit pose encodings are short; real face models are typically 128+ dims
 	return encoding_vector_length(encoding) >= 64
 
 
 def find_duplicate_face_employee(face_encoding, exclude_employee: str | None = None, min_score: float = 0.92):
-	"""Return employee if an active biometric profile already matches this face.
-
-	Pose/bounds encodings (current mobile app) are NOT unique per person — two
-	different people standing similarly will score ~0.95+. Skip that check so
-	other employees can still register. Enable only for real embeddings.
-	"""
+	"""Legacy helper — now checks Face Biometric only (ArcFace)."""
 	encoding = parse_face_encoding(face_encoding)
 	if not encoding:
 		return None
 
-	# Weak on-device pose vectors must not block registering a different person
 	if not is_biometric_face_encoding(encoding):
 		return None
 
@@ -431,26 +418,22 @@ def find_duplicate_face_employee(face_encoding, exclude_employee: str | None = N
 	if not isinstance(vector, list) or not vector:
 		return None
 
-	filters = {"status": "Active"}
-	profiles = frappe.get_all(
-		"Employee Face Profile",
-		filters=filters,
-		fields=["name", "employee", "employee_name", "face_encoding"],
+	from karmavitta.face_attendance.biometric import parse_template, cosine_similarity as bio_cosine
+
+	rows = frappe.get_all(
+		"Face Biometric",
+		filters={"enabled": 1, "registration_status": "Active"},
+		fields=["name", "employee", "employee_name", "biometric_template"],
 	)
 	best = None
 	best_score = 0.0
-	for row in profiles:
+	for row in rows:
 		if exclude_employee and row.employee == exclude_employee:
 			continue
-		other_raw = parse_face_encoding(row.face_encoding)
-		if not other_raw or not is_biometric_face_encoding(other_raw):
+		other = parse_template(row.biometric_template)
+		if not other:
 			continue
-		other = other_raw
-		if isinstance(other_raw, dict):
-			other = other_raw.get("vector") or other_raw.get("embedding") or other_raw.get("data")
-		if not isinstance(other, list):
-			continue
-		score = cosine_similarity(vector, other)
+		score = bio_cosine(vector, other)
 		if score > best_score:
 			best_score = score
 			best = row
@@ -484,7 +467,7 @@ def can_manage_employee_face(target_employee: str | None = None) -> bool:
 	):
 		return True
 
-	if frappe.has_permission("Employee Face Profile", "write"):
+	if frappe.has_permission("Face Biometric", "write"):
 		return True
 	if frappe.has_permission("Employee", "write"):
 		return True
@@ -495,5 +478,5 @@ def can_manage_employee_face(target_employee: str | None = None) -> bool:
 
 
 def get_face_profile_for_employee(employee: str) -> str | None:
-	"""Return existing Employee Face Profile name for employee, if any."""
-	return frappe.db.get_value("Employee Face Profile", {"employee": employee}, "name")
+	"""Return existing Face Biometric name for employee, if any."""
+	return frappe.db.get_value("Face Biometric", {"employee": employee}, "name")

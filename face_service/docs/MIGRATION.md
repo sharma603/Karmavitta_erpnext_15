@@ -1,17 +1,18 @@
-# MIGRATION (FaceNet → ArcFace)
+# ArcFace-only
 
-FaceNet-512 and ArcFace are **incompatible**. Do not convert vectors.
+ArcFace is the only supported backend. No legacy fallback exists.
 
-## Steps
+## Steps (fresh setup)
 
-1. Start service from `apps/karmavitta/face_service/`
-2. Keep `recognition_backend=facenet_local` until `/health` is OK
-3. Switch Face Attendance Settings → `arcface_service` + URL + API key
-4. Existing FaceNet templates are **ignored** by ArcFace matching
-5. Re-register every employee via mobile (sends `face_image`)
-6. Confirm diagnostics: `active_arcface_templates` > 0
-7. Test A/B attendance isolation
+1. Start service from `apps/karmavitta/face_service/` (`bench start` does this automatically)
+2. Configure Face Attendance Settings → `face_service_url` + `face_service_api_key` (Recognition Backend = `arcface_service`)
+3. Re-register every employee via mobile (sends `face_image` to ArcFace service)
+4. Confirm diagnostics: `active_arcface_templates` > 0
+5. Test A/B attendance isolation
 
-## Rollback
+Legacy templates (non-ArcFace) are **not** compatible and must be replaced by re-registration.
 
-Set Recognition Backend back to `facenet_local`.
+## Notes
+
+- Do not attempt to convert legacy vectors to ArcFace — vector spaces are incompatible.
+- If migrating from older installs, run `bench --site <site> migrate` to enforce `arcface_service`.

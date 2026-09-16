@@ -46,7 +46,6 @@ def get_my_profile():
 	if not employee:
 		return _fail("No active employee linked to this user")
 
-	# Prefer Face Biometric (current), fall back to legacy Employee Face Profile
 	profile = frappe.db.get_value(
 		"Face Biometric",
 		{"employee": employee, "enabled": 1, "registration_status": "Active"},
@@ -66,20 +65,10 @@ def get_my_profile():
 			},
 		)
 
-	legacy = frappe.db.get_value(
-		"Employee Face Profile",
-		{"employee": employee},
-		["name", "status", "profile_image", "registered_on"],
-		as_dict=True,
-	)
-	registered = bool(legacy and legacy.status == "Active")
 	return _ok(
 		employee=employee,
-		registered=registered,
-		profile={
-			**(legacy or {}),
-			"source": "Employee Face Profile" if legacy else None,
-		},
+		registered=False,
+		profile=None,
 	)
 
 
@@ -130,18 +119,11 @@ def get_face_status(employee: str | None = None):
 			model_name=bio.model_name,
 		)
 
-	legacy = frappe.db.get_value(
-		"Employee Face Profile",
-		{"employee": target},
-		["name", "status", "profile_image", "registered_on", "registered_device"],
-		as_dict=True,
-	)
-	registered = bool(legacy and legacy.status == "Active")
 	return _ok(
 		employee=target,
-		registered=registered,
-		profile=legacy or {},
-		registration_status=(legacy.status if legacy else None),
+		registered=False,
+		profile=None,
+		registration_status=None,
 	)
 
 
@@ -183,13 +165,13 @@ def register_face(
 		return _fail("face_encoding is required")
 
 	# Legacy pose/bounds encodings cannot enforce one-face-one-employee.
-	# Require FaceNet biometric API for registration.
+	# Require ArcFace biometric API for registration.
 	from karmavitta.face_attendance.utils import is_biometric_face_encoding
 
 	if not is_biometric_face_encoding(encoding):
 		return _fail(
-			"Real FaceNet biometric required. Use Face Registration in the mobile app "
-			"(karmavitta.api.biometric.register_face).",
+			"Real ArcFace biometric required. Use Face Registration in the mobile app "
+			"(karmavitta.api.biometric.register_face with face_image).",
 			code="BIOMETRIC_REQUIRED",
 		)
 
@@ -217,48 +199,7 @@ def list_active_face_profiles(api_key: str | None = None):
 		from karmavitta.face_attendance.biometric import list_active_biometric_templates_for_match
 
 		biometric_profiles = list_active_biometric_templates_for_match()
-		if biometric_profiles:
-			return _ok(profiles=biometric_profiles, count=len(biometric_profiles))
-
-		profiles = frappe.get_all(
-			"Employee Face Profile",
-			filters={"status": "Active"},
-			fields=["name", "employee", "face_encoding", "profile_image", "registered_on"],
-		)
-		employee_ids = [p.employee for p in profiles if p.employee]
-		employees = {}
-		if employee_ids:
-			employees = {
-				row.name: row.employee_name
-				for row in frappe.get_all(
-					"Employee",
-					filters={"name": ["in", employee_ids]},
-					fields=["name", "employee_name"],
-				)
-			}
-		payload = []
-		for row in profiles:
-			encoding = None
-			if row.face_encoding:
-				try:
-					encoding = (
-						json.loads(row.face_encoding)
-						if isinstance(row.face_encoding, str)
-						else row.face_encoding
-					)
-				except Exception:
-					encoding = None
-			payload.append(
-				{
-					"profile": row.name,
-					"employee": row.employee,
-					"employee_name": employees.get(row.employee) or row.employee,
-					"face_encoding": encoding,
-					"profile_image": row.profile_image,
-					"registered_on": str(row.registered_on) if row.registered_on else None,
-				}
-			)
-		return _ok(profiles=payload, count=len(payload))
+		return _ok(profiles=biometric_profiles, count=len(biometric_profiles))
 	except Exception as exc:
 		return _fail(str(exc))
 
@@ -283,13 +224,12 @@ def checkin(
 	face_image=None,
 	company: str | None = None,
 ):
-	"""Create attendance ONLY after authoritative face identification.
+	"""Create attendance ONLY after authoritative ArcFace identification.
 
 	Identity rules:
-	1. arcface_service + face_image → ArcFace 1:N (authoritative).
-	2. Else biometric_template → legacy FaceNet 1:N.
-	3. Client-sent employee is never trusted for identity.
-	4. Check In / Out uses that employee's own last log only.
+	1. face_image → ArcFace 1:N (authoritative via face_service).
+	2. Client-sent employee is never trusted for identity.
+	3. Check In / Out uses that employee's own last log only.
 	"""
 	try:
 		validate_mobile_api_key(api_key)
@@ -307,7 +247,6 @@ def checkin(
 		employee = None
 		employee_name_verified = None
 
-		from karmavitta.face_attendance.biometric import biometric_settings, verify_face_biometric
 		from karmavitta.services.face_service_client import (
 			FaceServiceError,
 			decode_image_payload,
@@ -315,68 +254,38 @@ def checkin(
 			verify_from_image,
 		)
 
-		if face_service_enabled(settings):
-			if not face_image:
-				return _fail(
-					"face_image is required when ArcFace face service is enabled.",
-					code="FACE_IMAGE_REQUIRED",
-				)
-			try:
-				image_bytes, filename, content_type = decode_image_payload(face_image)
-				verified = verify_from_image(
-					image_bytes=image_bytes,
-					filename=filename,
-					content_type=content_type,
-					company=company or settings.default_company,
-					settings=settings,
-				)
-			except FaceServiceError as exc:
-				return _fail(str(exc), code=exc.code)
-
-			if not verified.get("success") or not verified.get("matched"):
-				return _fail(
-					verified.get("message") or "Face not recognized",
-					code=verified.get("code") or "NO_MATCH",
-					similarity=verified.get("score"),
-				)
-			employee = verified.get("employee")
-			face_match_score = verified.get("score")
-			employee_name_verified = frappe.db.get_value("Employee", employee, "employee_name")
-		else:
-			if biometric_template is None or biometric_template == "":
-				return _fail(
-					"Face embedding is required. Update the mobile app and try again.",
-					code="EMBEDDING_REQUIRED",
-				)
-
-			# Force 1:N recognition — never pass client employee into verify
-			verified = verify_face_biometric(
-				biometric_template=biometric_template,
-				employee=None,
-				embedding_dimension=embedding_dimension,
-				model_name=model_name,
-				model_version=model_version,
-				device_id=device_id,
+		# ArcFace-only: face_service must be enabled and face_image required
+		if not face_service_enabled(settings):
+			return _fail(
+				"ArcFace Face Service is not configured. Set Face Service URL and API Key in Face Attendance Settings.",
+				code="FACE_SERVICE_NOT_CONFIGURED",
 			)
-			if not verified.get("success"):
-				return _fail(
-					verified.get("message") or "Face not recognized",
-					code=verified.get("code") or verified.get("error_code") or "FACE_NOT_RECOGNIZED",
-					similarity=verified.get("score"),
-				)
+		if not face_image:
+			return _fail(
+				"face_image is required. ArcFace service is the only supported backend.",
+				code="FACE_IMAGE_REQUIRED",
+			)
+		try:
+			image_bytes, filename, content_type = decode_image_payload(face_image)
+			verified = verify_from_image(
+				image_bytes=image_bytes,
+				filename=filename,
+				content_type=content_type,
+				company=company or settings.default_company,
+				settings=settings,
+			)
+		except FaceServiceError as exc:
+			return _fail(str(exc), code=exc.code)
 
-			employee = verified.get("employee")
-			face_match_score = verified.get("score")
-			employee_name_verified = verified.get("employee_name")
-
-			cfg = biometric_settings(settings)
-			min_score = max(flt(settings.min_face_match_score), flt(cfg["match_threshold"]), 0.68)
-			if flt(face_match_score) < min_score:
-				return _fail(
-					f"Face match score too low ({face_match_score}). Minimum is {min_score}",
-					code="FACE_SCORE_TOO_LOW",
-					similarity=face_match_score,
-				)
+		if not verified.get("success") or not verified.get("matched"):
+			return _fail(
+				verified.get("message") or "Face not recognized",
+				code=verified.get("code") or "NO_MATCH",
+				similarity=verified.get("score"),
+			)
+		employee = verified.get("employee")
+		face_match_score = verified.get("score")
+		employee_name_verified = frappe.db.get_value("Employee", employee, "employee_name")
 
 		if not employee:
 			return _fail("Face not recognized", code="FACE_NOT_RECOGNIZED")
@@ -874,7 +783,6 @@ def list_employees_for_kiosk(company: str | None = None, api_key: str | None = N
 			order_by="employee_name asc",
 		)
 
-		# Prefer Face Biometric; fall back to legacy Employee Face Profile
 		biometric = {
 			row.employee: row
 			for row in frappe.get_all(
@@ -883,18 +791,9 @@ def list_employees_for_kiosk(company: str | None = None, api_key: str | None = N
 				fields=["employee", "name", "registered_on", "model_name"],
 			)
 		}
-		legacy = {
-			row.employee: row
-			for row in frappe.get_all(
-				"Employee Face Profile",
-				filters={"status": "Active"},
-				fields=["employee", "name", "profile_image", "registered_on"],
-			)
-		}
 
 		for emp in employees:
 			bio = biometric.get(emp.name)
-			leg = legacy.get(emp.name)
 			if bio:
 				emp["face_profile"] = {
 					"name": bio.name,
@@ -902,14 +801,6 @@ def list_employees_for_kiosk(company: str | None = None, api_key: str | None = N
 					"registered_on": str(bio.registered_on) if bio.registered_on else None,
 					"model_name": bio.model_name,
 					"source": "Face Biometric",
-				}
-				emp["face_registered"] = True
-			elif leg:
-				emp["face_profile"] = {
-					"name": leg.name,
-					"profile_image": leg.profile_image,
-					"registered_on": str(leg.registered_on) if leg.registered_on else None,
-					"source": "Employee Face Profile",
 				}
 				emp["face_registered"] = True
 			else:

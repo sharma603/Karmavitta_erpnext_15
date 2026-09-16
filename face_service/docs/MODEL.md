@@ -12,9 +12,7 @@
 
 ## Compatibility
 
-Never compare FaceNet embeddings with ArcFace embeddings.
-
-Each Face Biometric row stores `model_name`, `model_version`, `embedding_dimension`.
+Only ArcFace embeddings (`ArcFace`, `insightface`) are compared. Each Face Biometric row stores `model_name`, `model_version`, `embedding_dimension`.
 
 ## Commercial licensing
 

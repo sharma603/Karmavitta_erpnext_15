@@ -40,13 +40,13 @@ def _filter_templates(
 
 
 def _compatible(row: dict[str, Any], required_model: str, required_version: str, required_dim: int) -> bool:
-	"""Never compare FaceNet with ArcFace (or mismatched dims)."""
+	"""Only ArcFace families with matching dims are compatible."""
 	model = (row.get("model_name") or "").strip()
 	version = (row.get("model_version") or "").strip()
 	dim = int(row.get("embedding_dimension") or len(row.get("embedding") or []))
 	if dim != required_dim:
 		return False
-	# Require ArcFace family; reject legacy FaceNet
+	# Require ArcFace family; reject legacy templates
 	if model and model.lower() not in {required_model.lower(), "arcface", "insightface"}:
 		return False
 	if version and required_version and version != required_version:

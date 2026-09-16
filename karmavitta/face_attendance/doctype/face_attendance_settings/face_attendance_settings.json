@@ -71,14 +71,14 @@
    "fieldtype": "Section Break",
    "label": "Mobile App Rules"
   },
-  {
-   "default": "0.75",
-   "description": "Minimum score (0 to 1) required to accept face match from mobile app. Use ≥0.70 for FaceNet.",
-   "fieldname": "min_face_match_score",
-   "fieldtype": "Float",
-   "label": "Minimum Face Match Score",
-   "precision": "2"
-  },
+   {
+    "default": "0.40",
+    "description": "Minimum score (0 to 1) required to accept ArcFace face match from the service. Default 0.40 (ArcFace cosine).",
+    "fieldname": "min_face_match_score",
+    "fieldtype": "Float",
+    "label": "Minimum Face Match Score",
+    "precision": "2"
+   },
   {
    "default": "0",
    "fieldname": "checkin_photo_required",
@@ -179,26 +179,26 @@
    "fieldtype": "Section Break",
    "label": "Face Biometric"
   },
-  {
-   "default": "FaceNet",
-   "description": "Must match mobile on-device model (see apps/karmavitta/docs/FACE_BIOMETRIC_MODEL.md)",
-   "fieldname": "biometric_model_name",
-   "fieldtype": "Data",
-   "label": "Biometric Model Name"
-  },
-  {
-   "default": "1.0",
-   "fieldname": "biometric_model_version",
-   "fieldtype": "Data",
-   "label": "Biometric Model Version"
-  },
-  {
-   "default": "512",
-   "description": "FaceNet-512 → 512. MobileFaceNet → typically 192.",
-   "fieldname": "biometric_embedding_dimension",
-   "fieldtype": "Int",
-   "label": "Embedding Dimension"
-  },
+   {
+    "default": "ArcFace",
+    "description": "Must be ArcFace. See face_service/docs/MODEL.md",
+    "fieldname": "biometric_model_name",
+    "fieldtype": "Data",
+    "label": "Biometric Model Name"
+   },
+   {
+    "default": "insightface-buffalo_l-1.0",
+    "fieldname": "biometric_model_version",
+    "fieldtype": "Data",
+    "label": "Biometric Model Version"
+   },
+   {
+    "default": "512",
+    "description": "ArcFace → 512 dimensions (InsightFace buffalo_l).",
+    "fieldname": "biometric_embedding_dimension",
+    "fieldtype": "Int",
+    "label": "Embedding Dimension"
+   },
   {
    "default": "cosine",
    "description": "Cosine similarity after L2 normalization. Thresholds below apply to cosine (0–1 typical for matches).",
@@ -211,22 +211,22 @@
    "fieldname": "column_break_biometric",
    "fieldtype": "Column Break"
   },
-  {
-   "default": "0.85",
-   "description": "Reject registration only when cosine similarity vs ANY other employee is ≥ this. FaceNet: use ~0.85. Values below ~0.82 falsely block different people.",
-   "fieldname": "face_duplicate_threshold",
-   "fieldtype": "Float",
-   "label": "Face Duplicate Threshold",
-   "precision": "3"
-  },
-  {
-   "default": "0.70",
-   "description": "Accept attendance verification when cosine ≥ this. FaceNet: use ~0.70–0.78. Values below 0.68 are floored automatically to avoid wrong-person matches.",
-   "fieldname": "face_match_threshold",
-   "fieldtype": "Float",
-   "label": "Face Match Threshold",
-   "precision": "3"
-  },
+   {
+    "default": "0.45",
+    "description": "Reject registration only when ArcFace cosine similarity vs ANY other employee is ≥ this. ArcFace: use 0.45 (server duplicate threshold).",
+    "fieldname": "face_duplicate_threshold",
+    "fieldtype": "Float",
+    "label": "Face Duplicate Threshold",
+    "precision": "3"
+   },
+   {
+    "default": "0.40",
+    "description": "Accept attendance verification when ArcFace cosine ≥ this. ArcFace recommended 0.40. (Face service threshold is authoritative).",
+    "fieldname": "face_match_threshold",
+    "fieldtype": "Float",
+    "label": "Face Match Threshold",
+    "precision": "3"
+   },
   {
    "default": "0.50",
    "description": "Same employee may update without admin if new face cosine vs own template ≥ this; otherwise require re-registration approval.",
@@ -248,34 +248,38 @@
    "fieldtype": "Section Break",
    "label": "ArcFace Face Service"
   },
-  {
-   "default": "facenet_local",
-   "description": "facenet_local = on-device FaceNet embeddings (legacy). arcface_service = authoritative InsightFace/ArcFace FastAPI service (recommended).",
-   "fieldname": "recognition_backend",
-   "fieldtype": "Select",
-   "label": "Recognition Backend",
-   "options": "facenet_local\narcface_service"
-  },
-  {
-   "description": "Example: http://127.0.0.1:8090",
-   "fieldname": "face_service_url",
-   "fieldtype": "Data",
-   "label": "Face Service URL",
-   "depends_on": "eval:doc.recognition_backend=='arcface_service'"
-  },
-  {
-   "fieldname": "face_service_api_key",
-   "fieldtype": "Password",
-   "label": "Face Service API Key",
-   "depends_on": "eval:doc.recognition_backend=='arcface_service'"
-  },
-  {
-   "default": "30",
-   "fieldname": "face_service_timeout_seconds",
-   "fieldtype": "Int",
-   "label": "Face Service Timeout (seconds)",
-   "depends_on": "eval:doc.recognition_backend=='arcface_service'"
-  },
+   {
+    "default": "arcface_service",
+    "description": "ArcFace InsightFace FastAPI service (authoritative). Requires Face Service URL and API Key.",
+    "fieldname": "recognition_backend",
+    "fieldtype": "Select",
+    "label": "Recognition Backend",
+    "options": "arcface_service"
+   },
+   {
+    "description": "High-level: internal URL of ArcFace service (e.g. http://127.0.0.1:8090). Must be reachable from ERPNext. Production: keep 127.0.0.1 behind firewall, never expose publicly.",
+    "fieldname": "face_service_url",
+    "fieldtype": "Data",
+    "label": "Face Service URL",
+    "mandatory_depends_on": "eval:doc.recognition_backend=='arcface_service'",
+    "reqd": 1
+   },
+   {
+    "description": "High-level: strong secret (32+ chars) — must exactly match face_service/.env FACE_SERVICE_API_KEY. Rotate via Regenerate if leaked.",
+    "fieldname": "face_service_api_key",
+    "fieldtype": "Password",
+    "label": "Face Service API Key",
+    "mandatory_depends_on": "eval:doc.recognition_backend=='arcface_service'",
+    "reqd": 1
+   },
+   {
+    "default": "30",
+    "description": "High-level: HTTP timeout to face service. 30s recommended (allows CPU inference). Lower to 15s only on GPU.",
+    "fieldname": "face_service_timeout_seconds",
+    "fieldtype": "Int",
+    "label": "Face Service Timeout (seconds)",
+    "depends_on": "eval:doc.recognition_backend=='arcface_service'"
+   },
   {
    "fieldname": "section_break_help",
    "fieldtype": "Section Break",

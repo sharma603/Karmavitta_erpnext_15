@@ -15,21 +15,19 @@ from frappe.utils import cint, flt, now_datetime
 from karmavitta.face_attendance.utils import can_manage_employee_face, get_settings
 
 
-DEFAULT_MODEL_NAME = "FaceNet"
-DEFAULT_MODEL_VERSION = "1.0"
+DEFAULT_MODEL_NAME = "ArcFace"
+DEFAULT_MODEL_VERSION = "insightface-buffalo_l-1.0"
 DEFAULT_EMBEDDING_DIM = 512
-# FaceNet cosine (this on-device model):
-# - same person often ~0.85–0.98
-# - different people often ~0.20–0.80 (impostors can reach ~0.75+)
-# Duplicate reject must stay ABOVE typical impostor range or new enrollments fail
-# with a false "already registered with another employee".
-DEFAULT_DUPLICATE_THRESHOLD = 0.85
-# Attendance match: stay above typical impostor range (~0.55–0.65)
-DEFAULT_MATCH_THRESHOLD = 0.70
-DEFAULT_MATCH_MARGIN = 0.10
+# ArcFace cosine (InsightFace buffalo_l):
+# - same person typically high, different people well separated
+# Thresholds are authoritative in face_service (0.40 match / 0.45 duplicate)
+# Keep local thresholds in sync but service is the source of truth for images.
+DEFAULT_DUPLICATE_THRESHOLD = 0.45
+DEFAULT_MATCH_THRESHOLD = 0.40
+DEFAULT_MATCH_MARGIN = 0.05
 DEFAULT_SAME_PERSON_UPDATE = 0.50
-# Never treat scores below this as duplicates (guards misconfigured Desk values)
-MIN_DUPLICATE_THRESHOLD = 0.82
+# Guard misconfigured Desk values that falsely reject different people
+MIN_DUPLICATE_THRESHOLD = 0.40
 
 
 def _ok(**kwargs):
@@ -54,8 +52,8 @@ def biometric_settings(settings=None) -> dict[str, Any]:
 		getattr(settings, "face_match_threshold", None)
 		or getattr(settings, "min_face_match_score", None)
 	) or DEFAULT_MATCH_THRESHOLD
-	# Floor match so Desk values like 0.55 cannot accept wrong people
-	if match < 0.68:
+	# Floor match so very low Desk values cannot accept wrong people (ArcFace floor ~0.35)
+	if match < 0.35:
 		match = DEFAULT_MATCH_THRESHOLD
 	# Also respect Minimum Face Match Score if higher
 	min_score = flt(getattr(settings, "min_face_match_score", None) or 0)
@@ -272,7 +270,7 @@ def register_face_biometric(
 	embedding_dimension: int | None = None,
 	model_name: str | None = None,
 	model_version: str | None = None,
-	template_version: str | None = "1",
+	template_version: str | None = "arcface-1",
 	device_id: str | None = None,
 	allow_update: bool = False,
 	admin_override: bool = False,
@@ -414,7 +412,7 @@ def register_face_biometric(
 	doc.embedding_dimension = cfg["embedding_dimension"]
 	doc.model_name = cfg["model_name"]
 	doc.model_version = cfg["model_version"]
-	doc.template_version = template_version or "1"
+	doc.template_version = template_version or "arcface-1"
 	doc.registration_status = "Active"
 	doc.enabled = 1
 	doc.registered_device_id = device_id
@@ -516,10 +514,9 @@ def recognize_employee_from_embedding(
 	candidates.sort(key=lambda x: x[1], reverse=True)
 	scored_count = len(candidates)
 
-	# Solo gallery: only one enrolled face. Impostors can still score ~0.55–0.75 on
-	# FaceNet and would ALL be assigned that single employee. Require a stricter
-	# absolute score so strangers are rejected as "not recognized".
-	SOLO_GALLERY_FLOOR = 0.85
+	# Solo gallery: only one enrolled face — require strict score so strangers
+	# are rejected as "not recognized".
+	SOLO_GALLERY_FLOOR = 0.40
 	effective_threshold = float(threshold)
 	if scored_count == 1:
 		effective_threshold = max(effective_threshold, SOLO_GALLERY_FLOOR)

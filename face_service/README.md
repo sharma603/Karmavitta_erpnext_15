@@ -63,7 +63,7 @@ bash scripts/bench_start.sh          # same as bench start (no reload)
 bash scripts/run.sh
 ```
 
-Then re-register employee faces (ArcFace). FaceNet templates are not compatible.
+Then re-register employee faces (ArcFace required; legacy templates are not compatible).
 
 ## Docs
 

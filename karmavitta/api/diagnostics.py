@@ -23,17 +23,10 @@ def face_recognition_diagnostics():
 		  AND LOWER(IFNULL(model_name,'')) LIKE '%%arcface%%'
 		"""
 	)[0][0]
-	facenet = frappe.db.sql(
-		"""
-		SELECT COUNT(*) FROM `tabFace Biometric`
-		WHERE enabled=1 AND registration_status='Active'
-		  AND (LOWER(IFNULL(model_name,'')) LIKE '%%facenet%%' OR IFNULL(model_name,'')='')
-		"""
-	)[0][0]
 
 	payload = {
 		"success": True,
-		"recognition_backend": getattr(settings, "recognition_backend", None) or "facenet_local",
+		"recognition_backend": getattr(settings, "recognition_backend", None) or "arcface_service",
 		"biometric_model_name": settings.biometric_model_name,
 		"biometric_model_version": settings.biometric_model_version,
 		"embedding_dimension": settings.biometric_embedding_dimension,
@@ -42,7 +35,6 @@ def face_recognition_diagnostics():
 		"min_face_match_score": settings.min_face_match_score,
 		"active_templates": active,
 		"active_arcface_templates": cint_safe(arcface),
-		"active_facenet_templates": cint_safe(facenet),
 		"face_service_enabled": face_service_enabled(settings),
 		"face_service_url": getattr(settings, "face_service_url", None),
 		"face_service_health": None,

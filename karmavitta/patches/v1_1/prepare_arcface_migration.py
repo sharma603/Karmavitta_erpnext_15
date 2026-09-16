@@ -1,8 +1,8 @@
-"""Prepare ArcFace migration metadata — does NOT disable working FaceNet templates.
+"""Migrate to ArcFace-only — remove legacy backend.
 
-FaceNet and ArcFace live in incompatible vector spaces. When Recognition Backend
-is switched to arcface_service, FaceNet templates are ignored by matching.
-Employees must re-register faces with ArcFace images.
+ArcFace is now the only supported backend. This patch enforces
+recognition_backend=arcface_service and updates thresholds.
+Employees with legacy templates must re-register.
 """
 
 from __future__ import annotations
@@ -14,21 +14,30 @@ def execute():
 	if not frappe.db.exists("DocType", "Face Attendance Settings"):
 		return
 
-	# Ensure new fields exist after migrate; keep facenet_local until admin enables service
 	doc = frappe.get_single("Face Attendance Settings")
-	if not getattr(doc, "recognition_backend", None):
-		doc.db_set("recognition_backend", "facenet_local", update_modified=False)
+	# Enforce ArcFace-only
+	doc.db_set("recognition_backend", "arcface_service", update_modified=False)
+	if (getattr(doc, "biometric_model_name", None) or "").lower() != "arcface":
+		doc.db_set("biometric_model_name", "ArcFace", update_modified=False)
+	if (getattr(doc, "biometric_model_version", None) or "") not in ("insightface-buffalo_l-1.0",):
+		doc.db_set("biometric_model_version", "insightface-buffalo_l-1.0", update_modified=False)
+	# Update thresholds to ArcFace defaults if still on legacy values
+	if (doc.face_match_threshold or 0) >= 0.68:
+		doc.db_set("face_match_threshold", 0.40, update_modified=False)
+	if (doc.face_duplicate_threshold or 0) >= 0.80:
+		doc.db_set("face_duplicate_threshold", 0.45, update_modified=False)
+	if (doc.min_face_match_score or 0) >= 0.68:
+		doc.db_set("min_face_match_score", 0.40, update_modified=False)
 
-	# Count legacy templates for ops visibility (no embedding data logged)
-	legacy = frappe.db.count(
-		"Face Biometric",
-		{
-			"enabled": 1,
-			"registration_status": "Active",
-			"model_name": ["in", ["FaceNet", "facenet", ""]],
-		},
-	)
-	frappe.logger("karmavitta").info(
-		f"ArcFace migration prepare: {legacy} active FaceNet templates remain "
-		"(ignored once recognition_backend=arcface_service)"
-	)
+	# Count legacy (non-ArcFace) templates for ops visibility
+	legacy = frappe.db.sql(
+		"""
+		SELECT COUNT(*) FROM `tabFace Biometric`
+		WHERE enabled=1 AND registration_status='Active'
+		  AND LOWER(IFNULL(model_name,'')) NOT LIKE '%%arcface%%'
+		"""
+	)[0][0]
+	if legacy:
+		frappe.logger("karmavitta").info(
+			f"ArcFace migration: {legacy} legacy templates remain (require re-registration)"
+		)

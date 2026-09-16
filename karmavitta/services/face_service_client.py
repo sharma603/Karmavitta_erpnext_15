@@ -23,8 +23,9 @@ class FaceServiceError(Exception):
 
 def face_service_enabled(settings=None) -> bool:
 	settings = settings or get_settings()
-	backend = (getattr(settings, "recognition_backend", None) or "facenet_local").strip().lower()
+	backend = (getattr(settings, "recognition_backend", None) or "arcface_service").strip().lower()
 	url = (getattr(settings, "face_service_url", None) or "").strip()
+	# Only ArcFace backend is supported
 	return backend in {"arcface_service", "insightface", "arcface"} and bool(url)
 
 
@@ -90,7 +91,7 @@ def health(settings=None) -> dict[str, Any]:
 
 
 def list_arcface_templates_for_company(company: str | None = None) -> list[dict[str, Any]]:
-	"""Authorized biometric population for matching (ArcFace only — never FaceNet)."""
+	"""Authorized biometric population for matching (ArcFace only)."""
 	filters = {"enabled": 1, "registration_status": "Active"}
 	rows = frappe.get_all(
 		"Face Biometric",
@@ -114,7 +115,7 @@ def list_arcface_templates_for_company(company: str | None = None) -> list[dict[
 	for row in rows:
 		model = (row.model_name or "").strip().lower()
 		if model and model not in {"arcface", "insightface"} and "arcface" not in model:
-			# Skip legacy FaceNet — incompatible vector space
+			# Skip non-ArcFace templates (legacy)
 			continue
 		if company and row.company and str(row.company) != str(company):
 			continue
