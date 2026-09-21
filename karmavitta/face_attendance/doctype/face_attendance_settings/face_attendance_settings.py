@@ -59,7 +59,7 @@ class FaceAttendanceSettings(Document):
 				frappe.throw("Face Service URL must start with http:// or https:// (e.g. http://127.0.0.1:8090)")
 			# normalize
 			self.face_service_url = url.rstrip("/")
-		elif self.recognition_backend == "arcface_service":
+		elif self.recognition_backend == "arcface_service" and not _is_frappe_cloud():
 			frappe.throw("Face Service URL is required for ArcFace backend")
 
 		if getattr(self, "face_service_timeout_seconds", None) is not None:
@@ -69,7 +69,7 @@ class FaceAttendanceSettings(Document):
 			key = str(self.face_service_api_key).strip()
 			if len(key) < 16:
 				frappe.throw("Face Service API Key must be at least 16 characters (32 recommended)")
-		elif self.recognition_backend == "arcface_service" and not self.is_new():
+		elif self.recognition_backend == "arcface_service" and not self.is_new() and not _is_frappe_cloud():
 			# allow empty on first insert; enforce after
 			pass
 
@@ -86,6 +86,15 @@ class FaceAttendanceSettings(Document):
 		# Enforce enterprise security defaults
 		if not getattr(self, "mobile_api_key", None):
 			self.mobile_api_key = random_string(32)
+
+
+def _is_frappe_cloud() -> bool:
+	try:
+		from frappe.utils.frappecloud import on_frappecloud
+
+		return bool(on_frappecloud())
+	except Exception:
+		return False
 
 
 def _require_settings_write():

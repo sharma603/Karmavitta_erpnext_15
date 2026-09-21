@@ -19,6 +19,16 @@ First start automatically:
 2. Copies `.env.example` → `.env` if `.env` is missing
 3. Starts Uvicorn on `127.0.0.1:8090`
 
+On Frappe Cloud, custom Procfile processes are not available. Karmavitta therefore
+does not write a localhost URL as a working cloud configuration. Host this service
+separately over HTTPS, then set that URL and its API key in Face Attendance Settings.
+The diagnostics response reports `configuration_required: true` until this is done.
+
+On a self-hosted bench, Karmavitta creates `.env`, generates the API key, chooses a
+free local port, and synchronizes the Desk URL during install/migrate. If the
+configured port is later occupied by another process, `bench start` stops with an
+explicit message; run `bench migrate` to select and synchronize a new port.
+
 Health check: `curl http://127.0.0.1:8090/health`
 
 Then in Desk → **Face Attendance Settings**:

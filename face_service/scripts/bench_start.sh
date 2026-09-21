@@ -16,8 +16,8 @@ if [[ ! -x "$ROOT/.venv/bin/uvicorn" ]]; then
 fi
 
 if [[ ! -f "$ROOT/.env" ]]; then
-  cp "$ROOT/.env.example" "$ROOT/.env"
-  echo "[karmavitta-face-service] Created .env from .env.example — set FACE_SERVICE_API_KEY"
+  echo "[karmavitta-face-service] Missing .env. Run bench migrate to let Karmavitta configure it automatically." >&2
+  exit 1
 fi
 
 # Load env for pydantic-settings / process
@@ -28,6 +28,12 @@ set +a
 
 export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
 PORT="${FACE_SERVICE_PORT:-8090}"
+if ! (echo >/dev/tcp/127.0.0.1/"$PORT") >/dev/null 2>&1; then
+  :
+else
+  echo "[karmavitta-face-service] Port ${PORT} is busy. Run bench migrate to select a new port and synchronize ERPNext settings." >&2
+  exit 1
+fi
 
 echo "[karmavitta-face-service] Starting on 127.0.0.1:${PORT}"
 exec "$ROOT/.venv/bin/uvicorn" app.main:app \

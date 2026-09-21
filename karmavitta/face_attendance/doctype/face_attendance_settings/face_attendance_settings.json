@@ -257,7 +257,7 @@
     "options": "arcface_service"
    },
    {
-    "description": "High-level: internal URL of ArcFace service (e.g. http://127.0.0.1:8090). Must be reachable from ERPNext. Production: keep 127.0.0.1 behind firewall, never expose publicly.",
+    "description": "URL of the ArcFace service reachable from ERPNext. Self-hosted default: http://127.0.0.1:8090. Frappe Cloud requires a separately hosted public HTTPS service; installing Karmavitta cannot start port 8090 on Frappe Cloud.",
     "fieldname": "face_service_url",
     "fieldtype": "Data",
     "label": "Face Service URL",
@@ -265,7 +265,7 @@
     "reqd": 1
    },
    {
-    "description": "High-level: strong secret (32+ chars) — must exactly match face_service/.env FACE_SERVICE_API_KEY. Rotate via Regenerate if leaked.",
+    "description": "Strong secret (32+ chars) matching FACE_SERVICE_API_KEY. Self-hosted installs generate it automatically; managed hosting requires the key from the external ArcFace service.",
     "fieldname": "face_service_api_key",
     "fieldtype": "Password",
     "label": "Face Service API Key",

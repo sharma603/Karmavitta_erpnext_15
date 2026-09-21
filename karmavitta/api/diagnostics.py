@@ -8,6 +8,15 @@ from karmavitta.face_attendance.utils import get_settings
 from karmavitta.services.face_service_client import face_service_enabled, health
 
 
+def _is_frappe_cloud() -> bool:
+	try:
+		from frappe.utils.frappecloud import on_frappecloud
+
+		return bool(on_frappecloud())
+	except Exception:
+		return False
+
+
 @frappe.whitelist()
 def face_recognition_diagnostics():
 	"""Safe ops report for Face Attendance Settings + optional ArcFace service."""
@@ -38,6 +47,8 @@ def face_recognition_diagnostics():
 		"face_service_enabled": face_service_enabled(settings),
 		"face_service_url": getattr(settings, "face_service_url", None),
 		"face_service_health": None,
+		"hosting": "frappe_cloud" if _is_frappe_cloud() else "self_hosted",
+		"configuration_required": _is_frappe_cloud() and not getattr(settings, "face_service_url", None),
 	}
 	if face_service_enabled(settings):
 		payload["face_service_health"] = health(settings)

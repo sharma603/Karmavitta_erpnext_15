@@ -3,13 +3,24 @@
 from __future__ import annotations
 
 import frappe
-from frappe.utils import cint
+from frappe.utils import cint, random_string
+
+
+def _is_managed_hosting() -> bool:
+	"""Return whether this site cannot start a custom local process."""
+	try:
+		from frappe.utils.frappecloud import on_frappecloud
+
+		return bool(on_frappecloud())
+	except Exception:
+		return False
 
 
 def after_install():
 	_ensure_settings()
 	_ensure_workspace()
 	_ensure_procfile_entry()
+	_ensure_local_face_service_config()
 	frappe.db.commit()
 
 
@@ -19,6 +30,7 @@ def after_migrate():
 	_enable_hr_sync_defaults()
 	_ensure_arcface_defaults()
 	_ensure_procfile_entry()
+	_ensure_local_face_service_config()
 	frappe.db.commit()
 
 
@@ -79,6 +91,94 @@ def _ensure_procfile_entry():
 		frappe.log_error(title="Karmavitta Procfile Setup", message=frappe.get_traceback())
 
 
+def _ensure_local_face_service_config():
+	"""Create matching local service credentials and select a free port."""
+	if _is_managed_hosting() or not frappe.db.exists("DocType", "Face Attendance Settings"):
+		return
+
+	try:
+		import os
+		import socket
+		from frappe.utils import get_bench_path
+
+		service_root = os.path.join(get_bench_path(), "apps", "karmavitta", "face_service")
+		env_path = os.path.join(service_root, ".env")
+		if not os.path.isdir(service_root):
+			return
+
+		settings = frappe.get_single("Face Attendance Settings")
+		key = settings.get_password("face_service_api_key") or ""
+		if not key or key == "change-me-face-service-key":
+			key = random_string(48)
+			settings.db_set("face_service_api_key", key, update_modified=False)
+
+		port = _read_env_port(env_path)
+		expected_existing_url = f"http://127.0.0.1:{port}" if port else ""
+		if not port or (
+			(settings.face_service_url or "").rstrip("/") != expected_existing_url
+			and not _port_is_available(socket, port)
+		):
+			port = _available_port(socket, 8090)
+
+		env_values = {}
+		if os.path.exists(env_path):
+			with open(env_path) as env_file:
+				for line in env_file:
+					if "=" in line and not line.lstrip().startswith("#"):
+						name, value = line.rstrip("\n").split("=", 1)
+						env_values[name.strip()] = value.strip()
+		env_values["FACE_SERVICE_API_KEY"] = key
+		env_values["FACE_SERVICE_PORT"] = str(port)
+		env_values["FACE_SERVICE_HOST"] = "127.0.0.1"
+		with open(env_path, "w") as env_file:
+			for name, value in env_values.items():
+				env_file.write(f"{name}={value}\n")
+		os.chmod(env_path, 0o600)
+
+		current_url = (settings.face_service_url or "").rstrip("/")
+		expected_url = f"http://127.0.0.1:{port}"
+		if current_url != expected_url:
+			settings.db_set("face_service_url", expected_url, update_modified=False)
+	except Exception:
+		frappe.log_error(title="Karmavitta Face Service Setup", message=frappe.get_traceback())
+
+
+def _read_env_port(env_path: str) -> int | None:
+	try:
+		import re
+
+		if not __import__("os").path.exists(env_path):
+			return None
+		with open(env_path) as env_file:
+			match = re.search(r"(?m)^\s*FACE_SERVICE_PORT\s*=\s*(\d+)", env_file.read())
+		port = int(match.group(1)) if match else 0
+		return port if 1024 <= port <= 65535 else None
+	except Exception:
+		return None
+
+
+def _available_port(socket_module, start: int = 8090) -> int:
+	for port in range(start, start + 100):
+		try:
+			with socket_module.socket(socket_module.AF_INET, socket_module.SOCK_STREAM) as probe:
+				probe.setsockopt(socket_module.SOL_SOCKET, socket_module.SO_REUSEADDR, 1)
+				probe.bind(("127.0.0.1", port))
+				return port
+		except OSError:
+			continue
+	return start
+
+
+def _port_is_available(socket_module, port: int) -> bool:
+	try:
+		with socket_module.socket(socket_module.AF_INET, socket_module.SOCK_STREAM) as probe:
+			probe.setsockopt(socket_module.SOL_SOCKET, socket_module.SO_REUSEADDR, 1)
+			probe.bind(("127.0.0.1", port))
+			return True
+	except OSError:
+		return False
+
+
 def _ensure_arcface_defaults():
 	"""Idempotent ArcFace-only enforcement for installs and migrates."""
 	if not frappe.db.exists("DocType", "Face Attendance Settings"):
@@ -102,7 +202,7 @@ def _ensure_arcface_defaults():
 		if getattr(doc, "face_similarity_metric", None) != "cosine":
 			doc.db_set("face_similarity_metric", "cosine", update_modified=False)
 			changed = True
-		if not getattr(doc, "face_service_url", None):
+		if not getattr(doc, "face_service_url", None) and not _is_managed_hosting():
 			doc.db_set("face_service_url", "http://127.0.0.1:8090", update_modified=False)
 			changed = True
 		if cint(getattr(doc, "face_service_timeout_seconds", None) or 0) != 30:
@@ -170,9 +270,11 @@ def _ensure_settings():
 	doc.liveness_provider = "none"
 	# ArcFace Service
 	doc.recognition_backend = "arcface_service"
-	doc.face_service_url = "http://127.0.0.1:8090"
-	# leave face_service_api_key empty — admin must set per server (see .env)
+	doc.face_service_url = "" if _is_managed_hosting() else "http://127.0.0.1:8090"
+	doc.face_service_api_key = random_string(48)
 	doc.face_service_timeout_seconds = 30
+	if _is_managed_hosting():
+		doc.flags.ignore_mandatory = True
 
 	companies = frappe.get_all("Company", pluck="name", limit=1)
 	if companies:
