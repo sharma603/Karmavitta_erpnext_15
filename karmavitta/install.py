@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from urllib.parse import urlsplit
 
 import frappe
@@ -41,7 +42,7 @@ def after_migrate():
 
 
 def _ensure_mobile_management():
-	"""Create the singleton mobile settings and its separate Desk workspace."""
+	"""Create a populated Mobile App Management workspace and its entry points."""
 	if not frappe.db.exists("DocType", "Mobile App Settings"):
 		return
 	try:
@@ -80,24 +81,167 @@ def _ensure_mobile_management():
 			ws.public = 1
 			ws.sequence_id = 3
 			ws.content = "[]"
-		# Keep the simple user-to-screen page as the primary entry point. The
-		# legacy profile DocType stays installed for existing permission records.
-		legacy_links = [
-			row for row in (ws.links or [])
-			if row.link_type == "DocType" and row.link_to == "Mobile App Permission"
+		changed = False
+		page_exists = frappe.db.exists("Page", "mobile-app-permissions")
+		shortcuts = [
+			{
+				"label": "Permission Profiles",
+				"link_to": "Mobile App Permission",
+				"type": "DocType",
+				"doc_view": "List",
+				"color": "Blue",
+			},
+			{
+				"label": "Mobile App Settings",
+				"link_to": "Mobile App Settings",
+				"type": "DocType",
+				"doc_view": "List",
+				"color": "Green",
+			},
 		]
-		changed = bool(legacy_links)
-		if legacy_links:
-			ws.links = [row for row in ws.links if row not in legacy_links]
-		links = [("DocType", "Mobile App Settings", "Mobile App Settings")]
-		if frappe.db.exists("Page", "mobile-app-permissions"):
-			links.append(("Page", "mobile-app-permissions", "Mobile App Permissions"))
-		existing_links = {(row.link_type, row.link_to): row for row in (ws.links or [])}
-		for link_type, link_to, label in links:
-			key = (link_type, link_to)
-			if key not in existing_links:
-				ws.append("links", {"type": "Link", "label": label, "link_type": link_type, "link_to": link_to, "onboard": 1})
+		links = [
+			{"type": "Card Break", "label": "Access & Profiles", "link_count": 1},
+			{
+				"type": "Link",
+				"label": "Permission Profiles",
+				"link_type": "DocType",
+				"link_to": "Mobile App Permission",
+				"onboard": 1,
+			},
+		]
+		content_blocks = [
+			{
+				"id": "karmavitta_mobile_management_title",
+				"type": "header",
+				"data": {"text": '<span class="h4"><b>Mobile App Control Center</b></span>', "col": 12},
+			},
+			{
+				"id": "karmavitta_mobile_management_help",
+				"type": "paragraph",
+				"data": {
+					"text": "Manage which ERPNext users can sign in to the mobile app and choose the screens each user can access.",
+					"col": 12,
+				},
+			},
+		]
+		if page_exists:
+			shortcuts.insert(0, {
+				"label": "Mobile App Permissions",
+				"link_to": "mobile-app-permissions",
+				"type": "Page",
+				"color": "Blue",
+			})
+			links[1:1] = [{
+				"type": "Link",
+				"label": "Mobile App Permissions",
+				"link_type": "Page",
+				"link_to": "mobile-app-permissions",
+				"onboard": 1,
+			}]
+			links[0]["link_count"] = 2
+			content_blocks.append({"id": "karmavitta_mobile_management_spacer", "type": "spacer", "data": {"col": 12}})
+			content_blocks.append({
+				"id": "karmavitta_mobile_management_shortcuts_title",
+				"type": "header",
+				"data": {"text": '<span class="h4"><b>Quick Access</b></span>', "col": 12},
+			})
+			content_blocks.append({
+				"id": "karmavitta_mobile_management_shortcut_page",
+				"type": "shortcut",
+				"data": {"shortcut_name": "Mobile App Permissions", "col": 4},
+			})
+		content_blocks.extend([
+			{
+				"id": "karmavitta_mobile_management_shortcut_profiles",
+				"type": "shortcut",
+				"data": {"shortcut_name": "Permission Profiles", "col": 4},
+			},
+			{
+				"id": "karmavitta_mobile_management_shortcut_settings",
+				"type": "shortcut",
+				"data": {"shortcut_name": "Mobile App Settings", "col": 4},
+			},
+			{"id": "karmavitta_mobile_management_spacer2", "type": "spacer", "data": {"col": 12}},
+			{
+				"id": "karmavitta_mobile_management_cards_title",
+				"type": "header",
+				"data": {"text": '<span class="h4"><b>Management</b></span>', "col": 12},
+			},
+			{
+				"id": "karmavitta_mobile_management_access_card",
+				"type": "card",
+				"data": {"card_name": "Access & Profiles", "col": 6},
+			},
+			{
+				"id": "karmavitta_mobile_management_settings_card",
+				"type": "card",
+				"data": {"card_name": "Configuration", "col": 6},
+			},
+		])
+		links.extend([
+			{"type": "Card Break", "label": "Configuration", "link_count": 1},
+			{
+				"type": "Link",
+				"label": "Mobile App Settings",
+				"link_type": "DocType",
+				"link_to": "Mobile App Settings",
+				"onboard": 1,
+			},
+		])
+
+		managed_targets = {
+			("Page", "mobile-app-permissions"),
+			("DocType", "Mobile App Permission"),
+			("DocType", "Mobile App Settings"),
+		}
+		managed_card_labels = {"Access & Profiles", "Configuration"}
+		preserved_links = [
+			row for row in (ws.links or [])
+			if (row.link_type, row.link_to) not in managed_targets
+			and not (row.type == "Card Break" and row.label in managed_card_labels)
+		]
+		previous_managed_links = [
+			(row.type, row.label, row.link_type, row.link_to, row.link_count)
+			for row in (ws.links or [])
+			if (row.link_type, row.link_to) in managed_targets
+			or (row.type == "Card Break" and row.label in managed_card_labels)
+		]
+		desired_managed_links = [
+			(row["type"], row["label"], row.get("link_type"), row.get("link_to"), row.get("link_count", 0))
+			for row in links
+		]
+		if previous_managed_links != desired_managed_links:
+			ws.links = preserved_links
+			for link in links:
+				ws.append("links", link)
+			changed = True
+
+		existing_shortcuts = {row.label: row for row in (ws.shortcuts or [])}
+		for shortcut in shortcuts:
+			existing = existing_shortcuts.get(shortcut["label"])
+			if not existing:
+				ws.append("shortcuts", shortcut)
 				changed = True
+			elif any(getattr(existing, field, None) != value for field, value in shortcut.items()):
+				for field, value in shortcut.items():
+					setattr(existing, field, value)
+				changed = True
+
+		try:
+			current_content = json.loads(ws.content or "[]")
+		except (TypeError, ValueError):
+			current_content = []
+		if not isinstance(current_content, list):
+			current_content = []
+		current_ids = {block.get("id") for block in current_content if isinstance(block, dict)}
+		for block in content_blocks:
+			if block["id"] not in current_ids:
+				current_content.append(block)
+				changed = True
+		updated_content = json.dumps(current_content, ensure_ascii=False)
+		if ws.content != updated_content:
+			ws.content = updated_content
+			changed = True
 		if is_new:
 			ws.insert(ignore_permissions=True)
 		elif changed:
@@ -425,51 +569,180 @@ def _ensure_workspace():
 			ws = frappe.new_doc("Workspace")
 			ws.label = title
 			ws.title = title
+			ws.module = title
 			ws.public = 1
 			ws.sequence_id = 2
 			ws.content = "[]"
 		else:
 			ws = frappe.get_doc("Workspace", ws_name)
 
-		links = [
+		workspace_changed = False
+		shortcut_definitions = [
+			("Face Attendance Settings", "Face Attendance Settings", "Green"),
+			("Attendance Logs", "Face Attendance Log", "Blue"),
+			("Face Biometric", "Face Biometric", "Blue"),
+			("Employee Face Profiles", "Employee Face Profile", "Grey"),
+			("Registration Audit", "Face Registration Audit", "Grey"),
+		]
+		shortcuts = [
 			{
-				"type": "Link",
-				"label": "Face Attendance Settings",
-				"link_type": "DocType",
-				"link_to": "Face Attendance Settings",
-				"onboard": 1,
+				"label": label,
+				"link_to": doctype,
+				"type": "DocType",
+				"doc_view": "List",
+				"color": color,
+			}
+			for label, doctype, color in shortcut_definitions
+			if frappe.db.exists("DocType", doctype)
+		]
+		group_definitions = [
+			("Attendance & Settings", [shortcut_definitions[0], shortcut_definitions[1]]),
+			("Face Identity", [shortcut_definitions[2], shortcut_definitions[3], shortcut_definitions[4]]),
+		]
+		links = []
+		content_blocks = [
+			{
+				"id": "karmavitta_face_attendance_title",
+				"type": "header",
+				"data": {"text": '<span class="h4"><b>Face Attendance Operations</b></span>', "col": 12},
 			},
 			{
-				"type": "Link",
-				"label": "Face Biometric",
-				"link_type": "DocType",
-				"link_to": "Face Biometric",
-				"onboard": 1,
+				"id": "karmavitta_face_attendance_help",
+				"type": "paragraph",
+				"data": {
+					"text": "Review attendance activity, manage face registrations, and configure locations and verification settings.",
+					"col": 12,
+				},
 			},
+			{"id": "karmavitta_face_attendance_spacer1", "type": "spacer", "data": {"col": 12}},
 			{
-				"type": "Link",
-				"label": "Attendance Logs",
-				"link_type": "DocType",
-				"link_to": "Face Attendance Log",
-				"onboard": 1,
+				"id": "karmavitta_face_attendance_shortcuts_title",
+				"type": "header",
+				"data": {"text": '<span class="h4"><b>Quick Access</b></span>', "col": 12},
 			},
 		]
-		existing_links = {(row.link_type, row.link_to): row for row in (ws.links or [])}
-		workspace_changed = False
-		for row in links:
-			key = (row["link_type"], row["link_to"])
-			existing_link = existing_links.get(key)
-			if not existing_link:
-				ws.append("links", row)
+		for index, (label, doctype, color) in enumerate(shortcut_definitions):
+			if not frappe.db.exists("DocType", doctype):
+				continue
+			content_blocks.append({
+				"id": f"karmavitta_face_attendance_shortcut_{index}",
+				"type": "shortcut",
+				"data": {"shortcut_name": label, "col": 3},
+			})
+		content_blocks.append({"id": "karmavitta_face_attendance_spacer2", "type": "spacer", "data": {"col": 12}})
+		content_blocks.append({
+			"id": "karmavitta_face_attendance_cards_title",
+			"type": "header",
+			"data": {"text": '<span class="h4"><b>Management</b></span>', "col": 12},
+		})
+		for index, (group_label, group_links) in enumerate(group_definitions):
+			available_links = [
+				item for item in group_links if frappe.db.exists("DocType", item[1])
+			]
+			if not available_links:
+				continue
+			links.append({"type": "Card Break", "label": group_label, "link_count": len(available_links)})
+			for label, doctype, _color in available_links:
+				links.append({
+					"type": "Link",
+					"label": label,
+					"link_type": "DocType",
+					"link_to": doctype,
+					"onboard": 1,
+				})
+			content_blocks.append({
+				"id": f"karmavitta_face_attendance_card_{index}",
+				"type": "card",
+				"data": {"card_name": group_label, "col": 4},
+			})
+
+		managed_targets = {("DocType", doctype) for _label, doctype, _color in shortcut_definitions}
+		# Face Attendance Location is a child table managed inside settings, not a standalone screen.
+		managed_targets.add(("DocType", "Face Attendance Location"))
+		managed_card_labels = {label for label, _items in group_definitions} | {"Location Management"}
+		managed_content_prefix = "karmavitta_face_attendance_"
+		kept_shortcuts = [
+			row for row in (ws.shortcuts or []) if row.label != "Face Attendance Locations"
+		]
+		if len(kept_shortcuts) != len(ws.shortcuts or []):
+			ws.shortcuts = kept_shortcuts
+			workspace_changed = True
+		preserved_links = [
+			row for row in (ws.links or [])
+			if (row.link_type, row.link_to) not in managed_targets
+			and not (row.type == "Card Break" and row.label in managed_card_labels)
+		]
+		previous_managed_links = [
+			(row.type, row.label, row.link_type, row.link_to, row.link_count)
+			for row in (ws.links or [])
+			if (row.link_type, row.link_to) in managed_targets
+			or (row.type == "Card Break" and row.label in managed_card_labels)
+		]
+		desired_managed_links = [
+			(row["type"], row["label"], row.get("link_type"), row.get("link_to"), row.get("link_count", 0))
+			for row in links
+		]
+		if previous_managed_links != desired_managed_links:
+			ws.links = preserved_links
+			for link in links:
+				ws.append("links", link)
+			workspace_changed = True
+
+		existing_shortcuts = {row.label: row for row in (ws.shortcuts or [])}
+		for shortcut in shortcuts:
+			existing = existing_shortcuts.get(shortcut["label"])
+			if not existing:
+				ws.append("shortcuts", shortcut)
 				workspace_changed = True
-			elif existing_link.label != row["label"]:
-				existing_link.label = row["label"]
+			elif any(getattr(existing, field, None) != value for field, value in shortcut.items()):
+				for field, value in shortcut.items():
+					setattr(existing, field, value)
 				workspace_changed = True
+
+		try:
+			current_content = json.loads(ws.content or "[]")
+		except (TypeError, ValueError):
+			current_content = []
+		if not isinstance(current_content, list):
+			current_content = []
+		managed_positions = [
+			index for index, block in enumerate(current_content)
+			if isinstance(block, dict)
+			and isinstance(block.get("id"), str)
+			and block["id"].startswith(managed_content_prefix)
+		]
+		first_managed_position = min(managed_positions, default=len(current_content))
+		insertion_index = sum(
+			1 for block in current_content[:first_managed_position]
+			if not (
+				isinstance(block, dict)
+				and isinstance(block.get("id"), str)
+				and block["id"].startswith(managed_content_prefix)
+			)
+		)
+		kept_content = [
+			block for block in current_content
+			if not (
+				isinstance(block, dict)
+				and isinstance(block.get("id"), str)
+				and block["id"].startswith(managed_content_prefix)
+			)
+		]
+		updated_blocks = kept_content[:insertion_index] + content_blocks + kept_content[insertion_index:]
+		if updated_blocks != current_content:
+			current_content = updated_blocks
+			workspace_changed = True
+		updated_content = json.dumps(current_content, ensure_ascii=False)
+		if ws.content != updated_content:
+			ws.content = updated_content
+			workspace_changed = True
 
 		if is_new:
 			ws.insert(ignore_permissions=True)
 		elif workspace_changed:
 			ws.save(ignore_permissions=True)
+		if is_new or workspace_changed:
+			frappe.clear_cache()
 	except Exception:
 		frappe.log_error(title="Karmavitta Workspace Setup", message=frappe.get_traceback())
 
