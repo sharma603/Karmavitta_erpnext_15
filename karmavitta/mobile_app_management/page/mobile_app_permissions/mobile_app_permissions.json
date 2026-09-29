@@ -1,0 +1,12 @@
+{
+ "doctype": "Page",
+ "name": "mobile-app-permissions",
+ "page_name": "mobile-app-permissions",
+ "title": "Mobile App Permissions",
+ "module": "Mobile App Management",
+ "standard": "Yes",
+ "icon": "fa fa-mobile",
+ "roles": [
+  {"role": "System Manager"}
+ ]
+}

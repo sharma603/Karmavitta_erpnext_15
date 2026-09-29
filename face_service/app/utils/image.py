@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from fastapi import HTTPException
 
-from app.config import settings
+from face_service.app.config import settings
 
 
 def decode_upload_bytes(raw: bytes) -> np.ndarray:

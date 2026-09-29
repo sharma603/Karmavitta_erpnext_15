@@ -1,0 +1,35 @@
+{
+ "doctype": "DocType",
+ "name": "Mobile App Settings",
+ "module": "Mobile App Management",
+ "issingle": 1,
+ "istable": 0,
+ "track_changes": 1,
+ "field_order": [
+  "app_name",
+  "enabled",
+  "default_landing_screen",
+  "default_allow_mobile_access",
+  "allow_offline_mode",
+  "session_timeout_minutes",
+  "permission_version",
+  "force_permission_refresh",
+  "setup_help"
+ ],
+ "fields": [
+  {"fieldname": "app_name", "fieldtype": "Data", "label": "App Name", "default": "Karmavitta", "reqd": 1},
+  {"fieldname": "enabled", "fieldtype": "Check", "label": "Enable Mobile Permissions", "default": "1"},
+  {"fieldname": "default_landing_screen", "fieldtype": "Select", "label": "Default Landing Screen", "options": "EmployeeHome\nAdminDashboard\nOwnerDashboard\nErpModules\nFaceAttendance\nAttendanceHub\nMyProfile", "default": "EmployeeHome", "description": "Used only when the selected screen is allowed for the signed-in user."},
+  {"fieldname": "default_allow_mobile_access", "fieldtype": "Check", "label": "Allow ERP-permitted screens by default", "default": "0", "description": "When enabled, existing ERPNext users without a Mobile App Permission record can use screens allowed by their ERPNext permissions. Turn this off to require a per-user mobile screen configuration."},
+  {"fieldname": "allow_offline_mode", "fieldtype": "Check", "label": "Allow Offline Mode", "default": "1"},
+  {"fieldname": "session_timeout_minutes", "fieldtype": "Int", "label": "Session Timeout (minutes)", "default": "60", "non_negative": 1},
+  {"fieldname": "permission_version", "fieldtype": "Int", "label": "Permission Version", "default": "1", "read_only": 1, "description": "Incremented automatically whenever a mobile access profile changes."},
+  {"fieldname": "force_permission_refresh", "fieldtype": "Check", "label": "Force Permission Refresh", "default": "0"},
+  {"fieldname": "setup_help", "fieldtype": "HTML", "label": "Configuration Guide", "options": "<div class=\"text-muted\"><p>Configure screen visibility per ERPNext user in <b>Mobile App Permissions</b>. Users without a saved profile follow the default setting above. A checked screen never grants ERPNext data permissions; those remain the final authority.</p></div>"}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

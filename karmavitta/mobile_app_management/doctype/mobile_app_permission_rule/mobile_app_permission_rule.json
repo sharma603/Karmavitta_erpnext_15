@@ -1,0 +1,21 @@
+{
+ "doctype": "DocType",
+ "name": "Mobile App Permission Rule",
+ "module": "Mobile App Management",
+ "istable": 1,
+ "field_order": ["target_type", "target_key", "enabled", "can_view", "can_create", "can_edit", "can_submit", "can_cancel", "can_delete", "can_print", "can_export", "can_share"],
+ "fields": [
+  {"fieldname": "target_type", "fieldtype": "Select", "label": "Rule Type", "options": "Module\nScreen\nReport\nDashboard Widget\nQuick Action", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "target_key", "fieldtype": "Data", "label": "Module / Screen Key", "reqd": 1, "in_list_view": 1, "description": "Module: accounting. Screen: employee_home or doctype:Sales Invoice. Report: report:General Ledger. Widget: widget:leave_balance. Quick Action: action:apply_leave."},
+  {"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled", "default": "1", "in_list_view": 1},
+  {"fieldname": "can_view", "fieldtype": "Check", "label": "View", "default": "1", "in_list_view": 1, "depends_on": "eval:doc.target_type != 'Module'"},
+  {"fieldname": "can_create", "fieldtype": "Check", "label": "Create", "default": "1", "depends_on": "eval:doc.target_type != 'Module'"},
+  {"fieldname": "can_edit", "fieldtype": "Check", "label": "Edit", "default": "1", "depends_on": "eval:doc.target_type != 'Module'"},
+  {"fieldname": "can_submit", "fieldtype": "Check", "label": "Submit", "default": "1", "depends_on": "eval:doc.target_type != 'Module'"},
+  {"fieldname": "can_cancel", "fieldtype": "Check", "label": "Cancel", "default": "1", "depends_on": "eval:doc.target_type != 'Module'"},
+  {"fieldname": "can_delete", "fieldtype": "Check", "label": "Delete", "default": "1", "depends_on": "eval:doc.target_type != 'Module'"},
+  {"fieldname": "can_print", "fieldtype": "Check", "label": "Print", "default": "1", "depends_on": "eval:doc.target_type != 'Module'"},
+  {"fieldname": "can_export", "fieldtype": "Check", "label": "Export", "default": "1", "depends_on": "eval:doc.target_type != 'Module'"},
+  {"fieldname": "can_share", "fieldtype": "Check", "label": "Share", "default": "1", "depends_on": "eval:doc.target_type != 'Module'"}
+ ]
+}

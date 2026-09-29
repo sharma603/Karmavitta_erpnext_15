@@ -11,9 +11,9 @@ from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.config import settings
-from app.models.face_engine import FaceEngine, get_face_engine
-from app.schemas.face import (
+from face_service.app.config import settings
+from face_service.app.models.face_engine import FaceEngine, get_face_engine
+from face_service.app.schemas.face import (
 	EmbeddingResponse,
 	ErrorResponse,
 	HealthResponse,
@@ -23,8 +23,8 @@ from app.schemas.face import (
 	VerifyMatchRequest,
 	VerifyMatchResponse,
 )
-from app.services import matching, quality, recognition, security
-from app.utils.image import decode_upload_bytes
+from face_service.app.services import matching, quality, recognition, security
+from face_service.app.utils.image import decode_upload_bytes
 
 
 @asynccontextmanager

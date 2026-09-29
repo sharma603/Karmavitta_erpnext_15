@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from app.config import settings
+from face_service.app.config import settings
 
 
 def parse_templates_json(raw: str, company: str | None = None) -> list[dict[str, Any]]:

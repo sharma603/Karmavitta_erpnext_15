@@ -3,9 +3,10 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
-export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
+APP_ROOT="$(dirname "$ROOT")"
+export PYTHONPATH="$APP_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 python - <<'PY'
-from app.config import settings
+from face_service.app.config import settings
 print("model_name", settings.model_name)
 print("model_version", settings.model_version)
 print("insightface_model_pack", settings.insightface_model_pack)
@@ -20,7 +21,7 @@ try:
 except Exception as e:
     print("onnxruntime_error", e)
 try:
-    from app.models.face_engine import get_face_engine
+    from face_service.app.models.face_engine import get_face_engine
     eng = get_face_engine()
     eng.initialize_model()
     print(eng.diagnostics())

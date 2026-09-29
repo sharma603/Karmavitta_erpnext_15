@@ -36,9 +36,11 @@
   "face_same_person_update_threshold",
   "liveness_provider",
   "section_break_face_service",
+  "face_recognition_mode",
   "recognition_backend",
   "face_service_url",
   "face_service_api_key",
+  "arcface_runtime_check",
   "face_service_timeout_seconds",
   "section_break_help",
   "mobile_setup_help"
@@ -61,6 +63,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "Generated automatically during install. Use Show Key, Copy Key, or Download Key below to configure the mobile app.",
    "fieldname": "mobile_api_key",
    "fieldtype": "Data",
    "label": "Mobile API Key",
@@ -243,42 +246,53 @@
    "label": "Liveness Provider",
    "options": "none\nquality_multipose\nexternal"
   },
-  {
-   "fieldname": "section_break_face_service",
-   "fieldtype": "Section Break",
-   "label": "ArcFace Face Service"
-  },
+   {
+    "fieldname": "section_break_face_service",
+    "fieldtype": "Section Break",
+    "label": "ArcFace Runtime"
+   },
+   {
+    "description": "Choose Built-in for ArcFace inside this Frappe site (no VPS). Choose External only when you already run a separate face service.",
+    "fieldname": "face_recognition_mode",
+    "fieldtype": "Select",
+    "label": "Where should ArcFace run?",
+    "options": "Built-in (same Frappe app)\nExternal Face Service"
+   },
    {
     "default": "arcface_service",
-    "description": "ArcFace InsightFace FastAPI service (authoritative). Requires Face Service URL and API Key.",
+    "description": "ArcFace is the recognition engine used by both runtime modes.",
     "fieldname": "recognition_backend",
     "fieldtype": "Select",
-    "label": "Recognition Backend",
+    "label": "Recognition Engine",
     "options": "arcface_service"
    },
    {
-    "description": "URL of the ArcFace service reachable from ERPNext. Self-hosted default: http://127.0.0.1:8090. Frappe Cloud requires a separately hosted public HTTPS service; installing Karmavitta cannot start port 8090 on Frappe Cloud.",
+    "description": "Only used in External Face Service mode. A localhost URL works only when the service runs on the same self-hosted server.",
+    "depends_on": "eval:doc.face_recognition_mode == 'External Face Service'",
     "fieldname": "face_service_url",
     "fieldtype": "Data",
-    "label": "Face Service URL",
-    "mandatory_depends_on": "eval:doc.recognition_backend=='arcface_service'",
-    "reqd": 1
+    "label": "External Face Service URL"
    },
    {
-    "description": "Strong secret (32+ chars) matching FACE_SERVICE_API_KEY. Self-hosted installs generate it automatically; managed hosting requires the key from the external ArcFace service.",
+    "description": "Required only for External Face Service mode; keep it private.",
+    "depends_on": "eval:doc.face_recognition_mode == 'External Face Service'",
     "fieldname": "face_service_api_key",
     "fieldtype": "Password",
-    "label": "Face Service API Key",
-    "mandatory_depends_on": "eval:doc.recognition_backend=='arcface_service'",
-    "reqd": 1
+    "label": "External Face Service API Key"
+   },
+   {
+    "fieldname": "arcface_runtime_check",
+    "fieldtype": "HTML",
+    "label": "Runtime Check",
+    "options": "<div class=\"text-muted\">Check ArcFace model loading and runtime readiness from this page.</div>"
    },
    {
     "default": "30",
-    "description": "High-level: HTTP timeout to face service. 30s recommended (allows CPU inference). Lower to 15s only on GPU.",
+    "description": "HTTP timeout used only when an external Face Service URL is configured.",
     "fieldname": "face_service_timeout_seconds",
     "fieldtype": "Int",
     "label": "Face Service Timeout (seconds)",
-    "depends_on": "eval:doc.recognition_backend=='arcface_service'"
+    "depends_on": "eval:doc.face_recognition_mode == 'External Face Service'"
    },
   {
    "fieldname": "section_break_help",

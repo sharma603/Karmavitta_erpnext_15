@@ -7,8 +7,8 @@ from typing import Any
 import cv2
 import numpy as np
 
-from app.config import settings
-from app.models.face_engine import FaceEngine
+from face_service.app.config import settings
+from face_service.app.models.face_engine import FaceEngine
 
 
 def assess_image(engine: FaceEngine, image_bgr: np.ndarray) -> dict[str, Any]:

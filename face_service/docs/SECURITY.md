@@ -10,4 +10,6 @@
 
 Use HTTPS in production (reverse proxy: nginx / Caddy).
 
-Service-to-service: ERPNext stores Face Service URL + API key in Face Attendance Settings (Password field).
+Frappe Cloud in-process mode handles inference inside the Frappe worker and needs no
+service URL or service key. Optional external mode sends images over HTTPS and uses
+the Face Service API Key stored in Face Attendance Settings (Password field).

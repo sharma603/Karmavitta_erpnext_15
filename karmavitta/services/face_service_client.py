@@ -13,6 +13,9 @@ from frappe.utils import cint, flt
 
 from karmavitta.face_attendance.utils import get_settings
 
+BUILT_IN_RUNTIME = "Built-in (same Frappe app)"
+EXTERNAL_RUNTIME = "External Face Service"
+
 
 class FaceServiceError(Exception):
 	def __init__(self, message: str, code: str = "FACE_SERVICE_ERROR", payload: dict | None = None):
@@ -22,11 +25,38 @@ class FaceServiceError(Exception):
 
 
 def face_service_enabled(settings=None) -> bool:
+	"""Whether ArcFace is configured, remotely or inside a managed Frappe worker."""
+	return recognition_mode(settings) != "unconfigured"
+
+
+def _is_frappe_cloud() -> bool:
+	try:
+		from frappe.utils.frappecloud import on_frappecloud
+
+		return bool(on_frappecloud())
+	except Exception:
+		return False
+
+
+def recognition_mode(settings=None) -> str:
 	settings = settings or get_settings()
 	backend = (getattr(settings, "recognition_backend", None) or "arcface_service").strip().lower()
 	url = (getattr(settings, "face_service_url", None) or "").strip()
-	# Only ArcFace backend is supported
-	return backend in {"arcface_service", "insightface", "arcface"} and bool(url)
+	if backend not in {"arcface_service", "insightface", "arcface"}:
+		return "unconfigured"
+
+	selected_mode = (getattr(settings, "face_recognition_mode", None) or "").strip()
+	if selected_mode == BUILT_IN_RUNTIME:
+		return "in_process"
+	if selected_mode == EXTERNAL_RUNTIME:
+		return "external_service" if url else "unconfigured"
+
+	# Backwards compatibility for settings created before the runtime selector existed.
+	if url:
+		return "external_service"
+	if _is_frappe_cloud():
+		return "in_process"
+	return "unconfigured"
 
 
 def _headers(settings) -> dict[str, str]:
@@ -79,13 +109,40 @@ def _post_multipart(path: str, *, files: dict, data: dict, settings=None) -> dic
 	return payload
 
 
-def health(settings=None) -> dict[str, Any]:
+def health(settings=None, *, initialize_model: bool = False) -> dict[str, Any]:
+	"""Check the selected ArcFace runtime and its current readiness."""
 	settings = settings or get_settings()
+	if recognition_mode(settings) == "in_process":
+		from karmavitta.services.face_runtime import health as in_process_health
+
+		return in_process_health(initialize_model=initialize_model)
+
 	try:
 		import requests
 
-		resp = requests.get(_url(settings, "/health"), timeout=10)
-		return resp.json()
+		resp = requests.get(
+			_url(settings, "/diagnostics"),
+			headers=_headers(settings),
+			timeout=10,
+		)
+		try:
+			payload = resp.json()
+		except Exception:
+			payload = {}
+		if resp.status_code == 401:
+			return {
+				"success": False,
+				"status": "unauthorized",
+				"message": "Face Service API Key does not match the configured service key",
+			}
+		if resp.status_code >= 400 or not payload.get("success"):
+			return {
+				"success": False,
+				"status": "error",
+				"message": payload.get("message") or f"Face service returned HTTP {resp.status_code}",
+			}
+		payload["status"] = "ok" if payload.get("ready") else "degraded"
+		return payload
 	except Exception as exc:  # noqa: BLE001
 		return {"success": False, "status": "error", "message": str(exc)}
 
@@ -146,6 +203,16 @@ def register_from_image(
 	settings=None,
 ) -> dict[str, Any]:
 	settings = settings or get_settings()
+	if recognition_mode(settings) == "in_process":
+		from karmavitta.services.face_runtime import register_from_image as register_locally
+
+		return register_locally(
+			image_bytes=image_bytes,
+			exclude_employee=exclude_employee,
+			company=company,
+			settings=settings,
+		)
+
 	templates = list_arcface_templates_for_company(company)
 	files = {"image": (filename, image_bytes, content_type)}
 	data = {
@@ -165,6 +232,15 @@ def verify_from_image(
 	settings=None,
 ) -> dict[str, Any]:
 	settings = settings or get_settings()
+	if recognition_mode(settings) == "in_process":
+		from karmavitta.services.face_runtime import verify_from_image as verify_locally
+
+		return verify_locally(
+			image_bytes=image_bytes,
+			company=company,
+			settings=settings,
+		)
+
 	templates = list_arcface_templates_for_company(company)
 	if not templates:
 		raise FaceServiceError(
@@ -183,6 +259,9 @@ def decode_image_payload(face_image) -> tuple[bytes, str, str]:
 	"""Accept base64 data-URL / raw base64 / binary."""
 	import base64
 
+	max_image_bytes = 5 * 1024 * 1024
+	max_encoded_chars = ((max_image_bytes + 2) // 3) * 4 + 512
+
 	if face_image is None or face_image == "":
 		raise FaceServiceError("face_image is required", "INVALID_IMAGE")
 
@@ -190,7 +269,10 @@ def decode_image_payload(face_image) -> tuple[bytes, str, str]:
 	filename = "face.jpg"
 
 	if isinstance(face_image, (bytes, bytearray)):
-		return bytes(face_image), filename, content_type
+		data = bytes(face_image)
+		if len(data) > max_image_bytes:
+			raise FaceServiceError("Image exceeds the 5 MB limit", "IMAGE_TOO_LARGE")
+		return data, filename, content_type
 
 	raw = str(face_image).strip()
 	if raw.startswith("data:"):
@@ -202,10 +284,14 @@ def decode_image_payload(face_image) -> tuple[bytes, str, str]:
 			content_type = "image/webp"
 			filename = "face.webp"
 		raw = b64
+	if len(raw) > max_encoded_chars:
+		raise FaceServiceError("Image exceeds the 5 MB limit", "IMAGE_TOO_LARGE")
 	try:
 		data = base64.b64decode(raw, validate=False)
 	except Exception as exc:  # noqa: BLE001
 		raise FaceServiceError("Invalid face_image encoding", "INVALID_IMAGE") from exc
 	if not data:
 		raise FaceServiceError("Empty face_image", "INVALID_IMAGE")
+	if len(data) > max_image_bytes:
+		raise FaceServiceError("Image exceeds the 5 MB limit", "IMAGE_TOO_LARGE")
 	return data, filename, content_type

@@ -3,9 +3,13 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 import frappe
 from frappe.model.document import Document
 from frappe.utils import cint, random_string
+
+from karmavitta.services.face_service_client import BUILT_IN_RUNTIME, EXTERNAL_RUNTIME
 
 
 class FaceAttendanceSettings(Document):
@@ -26,6 +30,11 @@ class FaceAttendanceSettings(Document):
 			self.biometric_embedding_dimension = 512
 		if getattr(self, "face_similarity_metric", None) != "cosine":
 			self.face_similarity_metric = "cosine"
+
+		if not self.face_recognition_mode:
+			self.face_recognition_mode = (
+				EXTERNAL_RUNTIME if self.face_service_url else BUILT_IN_RUNTIME
+			)
 
 		# ── High-level threshold hardening (ArcFace scale 0.35–0.60) ──
 		if self.min_face_match_score is not None:
@@ -52,26 +61,39 @@ class FaceAttendanceSettings(Document):
 		if getattr(self, "face_same_person_update_threshold", None) is not None:
 			self.face_same_person_update_threshold = max(0.0, min(float(self.face_same_person_update_threshold), 1.0))
 
-		# ── High-level service validation ──
+		# ── Runtime mode validation ──
 		if getattr(self, "face_service_url", None):
 			url = str(self.face_service_url).strip()
 			if not (url.startswith("http://") or url.startswith("https://")):
 				frappe.throw("Face Service URL must start with http:// or https:// (e.g. http://127.0.0.1:8090)")
 			# normalize
 			self.face_service_url = url.rstrip("/")
-		elif self.recognition_backend == "arcface_service" and not _is_frappe_cloud():
-			frappe.throw("Face Service URL is required for ArcFace backend")
+
+		if self.face_recognition_mode == EXTERNAL_RUNTIME and not self.face_service_url:
+			frappe.throw("Enter the service URL or choose Built-in (same Frappe app).")
+		if self.face_recognition_mode == EXTERNAL_RUNTIME and _is_frappe_cloud():
+			url_host = urlsplit(self.face_service_url).hostname
+			if url_host in {"localhost", "127.0.0.1", "0.0.0.0"}:
+				frappe.throw(
+					"Frappe Cloud cannot reach a localhost face service. Choose Built-in (same Frappe app) or use a public HTTPS service URL."
+				)
 
 		if getattr(self, "face_service_timeout_seconds", None) is not None:
 			self.face_service_timeout_seconds = max(5, min(int(self.face_service_timeout_seconds), 120))
 
-		if getattr(self, "face_service_api_key", None):
-			key = str(self.face_service_api_key).strip()
-			if len(key) < 16:
-				frappe.throw("Face Service API Key must be at least 16 characters (32 recommended)")
-		elif self.recognition_backend == "arcface_service" and not self.is_new() and not _is_frappe_cloud():
-			# allow empty on first insert; enforce after
-			pass
+		stored_key = str(self.get("face_service_api_key") or "").strip()
+		if not stored_key or self.is_dummy_password(stored_key):
+			key = self.get_password("face_service_api_key", raise_exception=False) or ""
+			if key:
+				# Keep the existing encrypted key when the Password field is blank in the form.
+				self.face_service_api_key = "*" * len(key)
+		else:
+			key = stored_key
+
+		if key and len(key) < 16:
+			frappe.throw("Face Service API Key must be at least 16 characters (32 recommended)")
+		if self.face_recognition_mode == EXTERNAL_RUNTIME and not key:
+			frappe.throw("Face Service API Key is required for External Face Service mode")
 
 		# ── High-level mobile / geofence / HR defaults ──
 		if self.min_minutes_between_checkin_checkout is not None:
@@ -131,3 +153,27 @@ def regenerate_mobile_api_key():
 		alert=True,
 	)
 	return {"mobile_api_key": new_key}
+
+
+@frappe.whitelist()
+def get_face_service_api_key():
+	"""Reveal or initialize the stored ArcFace service key for settings managers."""
+	_require_settings_write()
+	doc = frappe.get_single("Face Attendance Settings")
+	key = doc.get_password("face_service_api_key", raise_exception=False) or ""
+	if not key or key == "change-me-face-service-key":
+		key = random_string(48)
+		doc.face_service_api_key = key
+		if _is_frappe_cloud():
+			doc.flags.ignore_mandatory = True
+		elif not doc.face_service_url:
+			doc.face_service_url = "http://127.0.0.1:8090"
+		doc.save(ignore_permissions=True)
+		frappe.clear_cache()
+		key = doc.get_password("face_service_api_key", raise_exception=False) or key
+
+	if not _is_frappe_cloud():
+		from karmavitta.install import _ensure_local_face_service_config
+
+		_ensure_local_face_service_config()
+	return {"face_service_api_key": key}

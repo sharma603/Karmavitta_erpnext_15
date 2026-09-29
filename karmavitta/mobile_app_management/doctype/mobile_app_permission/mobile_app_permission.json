@@ -1,0 +1,26 @@
+{
+ "doctype": "DocType",
+ "name": "Mobile App Permission",
+ "module": "Mobile App Management",
+ "autoname": "hash",
+ "track_changes": 1,
+ "field_order": ["user", "user_summary", "enabled", "screens_section", "screen_access_matrix", "screens", "legacy_section", "applies_to", "role", "company", "rules"],
+ "fields": [
+  {"fieldname": "user", "fieldtype": "Link", "label": "Select User", "options": "User", "mandatory_depends_on": "eval:doc.applies_to == 'User'", "in_list_view": 1, "in_standard_filter": 1, "description": "Select an enabled ERPNext System User. Mobile access uses this existing ERPNext account."},
+  {"fieldname": "user_summary", "fieldtype": "HTML", "label": "User Details"},
+  {"fieldname": "enabled", "fieldtype": "Check", "label": "Mobile App Access Enabled", "default": "1", "in_list_view": 1},
+  {"fieldname": "screens_section", "fieldtype": "Section Break", "label": "Configure Mobile App Screens"},
+  {"fieldname": "screen_access_matrix", "fieldtype": "HTML", "label": "Mobile App Screens"},
+  {"fieldname": "screens", "fieldtype": "Table", "label": "Saved Screen Settings", "options": "Mobile App Permission Screen", "hidden": 1},
+  {"fieldname": "legacy_section", "fieldtype": "Section Break", "label": "Legacy Mobile Permission Rules", "hidden": 1},
+  {"fieldname": "applies_to", "fieldtype": "Select", "label": "Legacy Applies To", "options": "User\nRole", "default": "User", "hidden": 1},
+  {"fieldname": "role", "fieldtype": "Link", "label": "Legacy Role", "options": "Role", "hidden": 1},
+  {"fieldname": "company", "fieldtype": "Link", "label": "Legacy Company", "options": "Company", "hidden": 1},
+  {"fieldname": "rules", "fieldtype": "Table", "label": "Legacy Advanced Rules", "options": "Mobile App Permission Rule", "hidden": 1}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "print": 1, "email": 1, "share": 1, "export": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

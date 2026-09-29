@@ -7,7 +7,7 @@ from collections import defaultdict, deque
 
 from fastapi import HTTPException
 
-from app.config import settings
+from face_service.app.config import settings
 
 _ALLOWED_TYPES = {
 	"image/jpeg",

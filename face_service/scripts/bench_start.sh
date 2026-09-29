@@ -26,7 +26,8 @@ set -a
 source "$ROOT/.env"
 set +a
 
-export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
+APP_ROOT="$(dirname "$ROOT")"
+export PYTHONPATH="$APP_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 PORT="${FACE_SERVICE_PORT:-8090}"
 if ! (echo >/dev/tcp/127.0.0.1/"$PORT") >/dev/null 2>&1; then
   :
@@ -36,7 +37,7 @@ else
 fi
 
 echo "[karmavitta-face-service] Starting on 127.0.0.1:${PORT}"
-exec "$ROOT/.venv/bin/uvicorn" app.main:app \
+exec "$ROOT/.venv/bin/uvicorn" face_service.app.main:app \
   --host 127.0.0.1 \
   --port "$PORT" \
   --log-level info

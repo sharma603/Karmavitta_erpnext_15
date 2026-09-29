@@ -6,9 +6,9 @@ from typing import Any
 
 import numpy as np
 
-from app.config import settings
-from app.models.face_engine import FaceEngine
-from app.services import quality
+from face_service.app.config import settings
+from face_service.app.models.face_engine import FaceEngine
+from face_service.app.services import quality
 
 
 def embed_from_image(

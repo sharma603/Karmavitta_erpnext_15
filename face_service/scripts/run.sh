@@ -18,5 +18,6 @@ if [[ ! -f .env ]]; then
   echo "Created .env — set FACE_SERVICE_API_KEY before production use."
 fi
 
-export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
-exec uvicorn app.main:app --host 127.0.0.1 --port "${PORT:-8090}" --reload
+APP_ROOT="$(dirname "$ROOT")"
+export PYTHONPATH="$APP_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+exec uvicorn face_service.app.main:app --host 127.0.0.1 --port "${PORT:-8090}" --reload

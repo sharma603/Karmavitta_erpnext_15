@@ -104,7 +104,7 @@ def verify_face(
 ):
 	"""Verify / identify a face. Optional api_key for kiosk.
 
-	With arcface_service + face_image, identity comes only from ArcFace 1:N.
+	With ArcFace enabled + face_image, identity comes only from ArcFace 1:N.
 	Client ``employee`` is never trusted for attendance identity.
 	"""
 	if api_key:

@@ -13,7 +13,7 @@ Set a strong `FACE_SERVICE_API_KEY`.
 ```bash
 bash scripts/run.sh
 # or
-uvicorn app.main:app --host 127.0.0.1 --port 8090
+PYTHONPATH=.. uvicorn face_service.app.main:app --host 127.0.0.1 --port 8090
 ```
 
 Calibrate thresholds after collecting same-person / different-person scores:

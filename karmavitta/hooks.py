@@ -51,6 +51,7 @@ after_migrate = "karmavitta.install.after_migrate"
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
+doctype_js = {"Mobile App Permission": "public/js/mobile_app_permission.js"}
 
 # Svg Icons
 # ------------------
@@ -250,4 +251,3 @@ after_migrate = "karmavitta.install.after_migrate"
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
-

@@ -257,12 +257,12 @@ def checkin(
 		# ArcFace-only: face_service must be enabled and face_image required
 		if not face_service_enabled(settings):
 			return _fail(
-				"ArcFace Face Service is not configured. Set Face Service URL and API Key in Face Attendance Settings.",
+				"ArcFace is not configured. Check the Recognition Runtime settings in Face Attendance Settings.",
 				code="FACE_SERVICE_NOT_CONFIGURED",
 			)
 		if not face_image:
 			return _fail(
-				"face_image is required. ArcFace service is the only supported backend.",
+				"face_image is required. ArcFace is the only supported recognition backend.",
 				code="FACE_IMAGE_REQUIRED",
 			)
 		try:

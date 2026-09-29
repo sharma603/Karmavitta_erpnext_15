@@ -1,0 +1,14 @@
+{
+ "doctype": "DocType",
+ "name": "Mobile App Permission Screen",
+ "module": "Mobile App Management",
+ "istable": 1,
+ "field_order": ["screen_name", "screen_label", "module", "enabled", "sort_order"],
+ "fields": [
+  {"fieldname": "screen_name", "fieldtype": "Data", "label": "Screen Name", "reqd": 1, "in_list_view": 1, "read_only": 1},
+  {"fieldname": "screen_label", "fieldtype": "Data", "label": "Screen Label", "reqd": 1, "in_list_view": 1, "read_only": 1},
+  {"fieldname": "module", "fieldtype": "Data", "label": "Module", "reqd": 1, "in_list_view": 1, "read_only": 1},
+  {"fieldname": "enabled", "fieldtype": "Check", "label": "Enabled", "default": "0", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "sort_order", "fieldtype": "Int", "label": "Sort Order", "default": "0", "read_only": 1}
+ ]
+}

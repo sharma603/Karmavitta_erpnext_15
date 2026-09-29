@@ -9,7 +9,7 @@ from typing import Any
 
 import numpy as np
 
-from app.config import settings
+from face_service.app.config import settings
 
 logger = logging.getLogger("karmavritta.face_engine")
 
