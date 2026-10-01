@@ -29,7 +29,7 @@ after_migrate = "karmavitta.install.after_migrate"
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/karmavitta/css/karmavitta.css"
+app_include_css = "/assets/karmavitta/css/employee_details.css?v=20261001g"
 # app_include_js = "/assets/karmavitta/js/karmavitta.js"
 
 # include js, css files in header of web template

@@ -595,9 +595,19 @@ def _ensure_workspace():
 			for label, doctype, color in shortcut_definitions
 			if frappe.db.exists("DocType", doctype)
 		]
+		if frappe.db.exists("Page", "employee-details"):
+			shortcuts.append(
+				{
+					"label": "Employee Details",
+					"link_to": "employee-details",
+					"type": "Page",
+					"color": "Green",
+				}
+			)
 		group_definitions = [
 			("Attendance & Settings", [shortcut_definitions[0], shortcut_definitions[1]]),
 			("Face Identity", [shortcut_definitions[2], shortcut_definitions[3], shortcut_definitions[4]]),
+			("Employee Identities", [("Employee Details", "employee-details", "Green", "Page")]),
 		]
 		links = []
 		content_blocks = [
@@ -629,6 +639,12 @@ def _ensure_workspace():
 				"type": "shortcut",
 				"data": {"shortcut_name": label, "col": 3},
 			})
+		if frappe.db.exists("Page", "employee-details"):
+			content_blocks.append({
+				"id": "karmavitta_face_attendance_shortcut_employee_details",
+				"type": "shortcut",
+				"data": {"shortcut_name": "Employee Details", "col": 3},
+			})
 		content_blocks.append({"id": "karmavitta_face_attendance_spacer2", "type": "spacer", "data": {"col": 12}})
 		content_blocks.append({
 			"id": "karmavitta_face_attendance_cards_title",
@@ -636,18 +652,21 @@ def _ensure_workspace():
 			"data": {"text": '<span class="h4"><b>Management</b></span>', "col": 12},
 		})
 		for index, (group_label, group_links) in enumerate(group_definitions):
-			available_links = [
-				item for item in group_links if frappe.db.exists("DocType", item[1])
-			]
+			available_links = []
+			for item in group_links:
+				label, target, color, *type_override = item
+				link_type = type_override[0] if type_override else "DocType"
+				if frappe.db.exists(link_type, target):
+					available_links.append((label, target, color, link_type))
 			if not available_links:
 				continue
 			links.append({"type": "Card Break", "label": group_label, "link_count": len(available_links)})
-			for label, doctype, _color in available_links:
+			for label, target, _color, link_type in available_links:
 				links.append({
 					"type": "Link",
 					"label": label,
-					"link_type": "DocType",
-					"link_to": doctype,
+					"link_type": link_type,
+					"link_to": target,
 					"onboard": 1,
 				})
 			content_blocks.append({
@@ -657,12 +676,22 @@ def _ensure_workspace():
 			})
 
 		managed_targets = {("DocType", doctype) for _label, doctype, _color in shortcut_definitions}
+		managed_targets.update(
+			(type_override[0] if type_override else "DocType", target)
+			for _group_label, group_links in group_definitions
+			for _label, target, _color, *type_override in group_links
+		)
+		# Replace the earlier Employee list shortcut with the dedicated Page link.
+		managed_targets.add(("DocType", "Employee"))
 		# Face Attendance Location is a child table managed inside settings, not a standalone screen.
 		managed_targets.add(("DocType", "Face Attendance Location"))
 		managed_card_labels = {label for label, _items in group_definitions} | {"Location Management"}
 		managed_content_prefix = "karmavitta_face_attendance_"
 		kept_shortcuts = [
-			row for row in (ws.shortcuts or []) if row.label != "Face Attendance Locations"
+			row
+			for row in (ws.shortcuts or [])
+			if row.label != "Face Attendance Locations"
+			and not (row.type == "DocType" and row.link_to == "Employee")
 		]
 		if len(kept_shortcuts) != len(ws.shortcuts or []):
 			ws.shortcuts = kept_shortcuts

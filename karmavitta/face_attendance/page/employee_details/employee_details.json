@@ -1,0 +1,15 @@
+{
+ "doctype": "Page",
+ "name": "employee-details",
+ "page_name": "employee-details",
+ "title": "Employee Details",
+ "module": "Face Attendance",
+ "standard": "Yes",
+ "icon": "octicon octicon-organization",
+ "roles": [
+  {"role": "System Manager"},
+  {"role": "HR Manager"},
+  {"role": "HR User"},
+  {"role": "Employee"}
+ ]
+}
