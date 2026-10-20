@@ -83,6 +83,10 @@ Check it: `curl http://127.0.0.1:8090/health` → `{"status":"ok"}` (or similar)
 
 ### 2.2 Frappe Cloud production setup
 
+If image installation fails while compiling InsightFace with `PyDataType_*`
+or `_PyUFuncObject_GET_ITEM_DATA` errors, apply the isolated build constraints
+described in [InsightFace build troubleshooting](docs/INSIGHTFACE_BUILD.md).
+
 In Face Attendance Settings, choose **Built-in (same Frappe app)** to run ArcFace
 inside Frappe's Python workers, with no VPS or separate service key. The root
 `pyproject.toml` declares the inference dependencies. Click **Check ArcFace** to load

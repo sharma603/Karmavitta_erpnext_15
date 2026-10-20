@@ -1,0 +1,4 @@
+# Apply to the isolated build environment, not just the bench runtime.
+# InsightFace 0.7.3 compiles a Cython extension against NumPy's C API.
+numpy==1.26.4
+Cython>=0.29.36,<3
